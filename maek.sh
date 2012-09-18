@@ -1,23 +1,24 @@
 #!/bin/bash
 
     THREADS=$(expr 4 + $(grep processor /proc/cpuinfo | wc -l))
+    #THREADS=1
     DEFCONFIG=msm8960_mmi_defconfig
     ARCH="ARCH=arm"
-    CROSS="CROSS_COMPILE=/home/shabbypenguin/android/CM/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
-    DIR=/home/shabbypenguin/Public
+    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchains/linaro/android-toolchain-eabi/bin/arm-eabi-"
+    DIR=/home/arrrghhh/xt897
     RAMDISK=$DIR/Ramdisks/XT897
     CMRAMDISK=$DIR/Ramdisks/XT897-CM
     TOOLS=$DIR/Tools
-    KERNEL=$DIR/Photon-Q-Kernel
+    KERNEL=$DIR/XT897-P-Q-s-Kernel
     PACK=$KERNEL/package
     OUT=$KERNEL/arch/arm/boot
     LOG=$TOOLS/log.txt
 
     # Edit this to change the kernel name
-    KBUILD_BUILD_VERSION="Peas-&-Q's-Kernel-0.1"
+    KBUILD_BUILD_VERSION="arrrghhhs-Kernel-0.01"
     export KBUILD_BUILD_VERSION
 
-    MAKE="make -j${THREADS}"
+    MAKE="make CONFIG_NO_ERROR_ON_MISMATCH=y -j${THREADS}"
     export USE_CCACHE=1
     export $CROSS
     export $ARCH
@@ -36,7 +37,16 @@
     # Finally making the kernel
     $MAKE zImage
     $MAKE modules
-
+    if [ -f $KERNEL/arch/arm/boot/zImage ]; then
+          echo
+      echo "Kernel has been compiled!!! You can find it in arch/arm/boot/zImage"
+          echo
+    else
+      echo
+          echo "Kernel did not compile, please check for errors!!"
+          echo
+          exit
+    fi
     echo "Compiled" >> $LOG
     date >> $LOG
     echo "" >> $LOG
