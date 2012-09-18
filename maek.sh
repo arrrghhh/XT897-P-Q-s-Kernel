@@ -15,7 +15,7 @@
     LOG=$TOOLS/log.txt
 
     # Edit this to change the kernel name
-    KBUILD_BUILD_VERSION="arrrghhhs-Kernel-0.01"
+    KBUILD_BUILD_VERSION="arrrghhhs-Kernel-0.02"
     export KBUILD_BUILD_VERSION
 
     MAKE="make CONFIG_NO_ERROR_ON_MISMATCH=y -j${THREADS}"
