@@ -5,7 +5,7 @@
     DEFCONFIG=msm8960_mmi_defconfig
     ARCH="ARCH=arm"
     CROSS="CROSS_COMPILE=/home/arrrghhh/toolchains/linaro/android-toolchain-eabi/bin/arm-eabi-"
-    DIR=/home/arrrghhh/xt897/
+    DIR=/home/arrrghhh/xt897
     RAMDISK=$DIR/Ramdisks/XT897
     CMRAMDISK=$DIR/Ramdisks/XT897-CM
     TOOLS=$DIR/Tools
