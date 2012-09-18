@@ -15,7 +15,7 @@
     LOG=$TOOLS/log.txt
 
     # Edit this to change the kernel name
-    KBUILD_BUILD_VERSION="arrrghhhs-Kernel-0.02"
+    KBUILD_BUILD_VERSION="arrrghhhs-Kernel-0.03"
     export KBUILD_BUILD_VERSION
 
     MAKE="make CONFIG_NO_ERROR_ON_MISMATCH=y -j${THREADS}"
@@ -53,7 +53,7 @@
 
     # This command will detect if the folder is there and if not will recreate it
     [ -d "$RAMDISK/lib/modules" ] || mkdir -p "$RAMDISK/lib/modules"
-
+    [ -d "$PACK" ] || mkdir -p "$PACK"
     # These move files to easier locations
     find -name '*.ko' -exec cp -av {} $RAMDISK/lib/modules/ \;
     #find -name '*.ko' -exec cp -av {} $CMRAMDISK/lib/modules/ \;
