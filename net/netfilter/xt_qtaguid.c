@@ -1265,7 +1265,11 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 	struct data_counters *uid_tag_counters;
 	struct sock_tag *sock_tag_entry;
 	struct iface_stat *iface_entry;
+<<<<<<< HEAD
 	struct tag_stat *new_tag_stat;
+=======
+	struct tag_stat *new_tag_stat=0;
+>>>>>>> f9701be... LINARO: linaro 4.7.2 2012.09 -O3 compliance fixes
 	MT_DEBUG("qtaguid: if_tag_stat_update(ifname=%s "
 		"uid=%u sk=%p dir=%d proto=%d bytes=%d)\n",
 		 ifname, uid, sk, direction, proto, bytes);

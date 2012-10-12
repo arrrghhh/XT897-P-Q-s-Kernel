@@ -1057,7 +1057,11 @@ static struct bio *split_bvec(struct bio *bio, sector_t sector,
 	clone->bi_flags |= 1 << BIO_CLONED;
 
 	if (bio_integrity(bio)) {
+<<<<<<< HEAD
 		bio_integrity_clone(clone, bio, GFP_NOIO, bs);
+=======
+		(void) bio_integrity_clone(clone, bio, GFP_NOIO, bs);
+>>>>>>> f9701be... LINARO: linaro 4.7.2 2012.09 -O3 compliance fixes
 		bio_integrity_trim(clone,
 				   bio_sector_offset(bio, idx, offset), len);
 	}
@@ -1084,7 +1088,11 @@ static struct bio *clone_bio(struct bio *bio, sector_t sector,
 	clone->bi_flags &= ~(1 << BIO_SEG_VALID);
 
 	if (bio_integrity(bio)) {
+<<<<<<< HEAD
 		bio_integrity_clone(clone, bio, GFP_NOIO, bs);
+=======
+		(void) bio_integrity_clone(clone, bio, GFP_NOIO, bs);
+>>>>>>> f9701be... LINARO: linaro 4.7.2 2012.09 -O3 compliance fixes
 
 		if (idx != bio->bi_idx || clone->bi_size < bio->bi_size)
 			bio_integrity_trim(clone,

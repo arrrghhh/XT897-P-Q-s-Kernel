@@ -1185,7 +1185,11 @@ static void dm_table_set_integrity(struct dm_table *t)
 
 	template_disk = dm_table_get_integrity_disk(t, true);
 	if (template_disk)
+<<<<<<< HEAD
 		blk_integrity_register(dm_disk(t->md),
+=======
+		(void) blk_integrity_register(dm_disk(t->md),
+>>>>>>> f9701be... LINARO: linaro 4.7.2 2012.09 -O3 compliance fixes
 				       blk_get_integrity(template_disk));
 	else if (blk_integrity_is_initialized(dm_disk(t->md)))
 		DMWARN("%s: device no longer has a valid integrity profile",
