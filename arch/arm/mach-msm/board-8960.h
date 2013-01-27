@@ -105,9 +105,9 @@ extern int msm_pm8921_regulator_pdata_len __devinitdata;
 
 #endif
 
-#define MSM_PMEM_ADSP_SIZE         0x6E00000 /* Need to be multiple of 64K */
+#define MSM_PMEM_ADSP_SIZE         0x6DD0000 /* Need to be multiple of 64K */
 #define MSM_PMEM_AUDIO_SIZE        0xB4000
-#define MSM_PMEM_SIZE 0x4600000 /* 70 Mbytes */
+#define MSM_PMEM_SIZE 0x4B00000 /* 75 Mbytes */
 #define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #define MSM_HDMI_PRIM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #define MSM_RAM_CONSOLE_SIZE       128 * SZ_1K
@@ -117,15 +117,15 @@ extern int msm_pm8921_regulator_pdata_len __devinitdata;
 #ifdef CONFIG_MSM_IOMMU
 #define MSM_ION_MM_SIZE		0x3800000
 #define MSM_ION_SF_SIZE		0x0
-#define MSM_ION_QSECOM_SIZE	0x380000 /* (3.5MB) - can't fallback to SF */
+#define MSM_ION_QSECOM_SIZE	0x500000 /* (5MB) - can't fallback to SF */
 #define MMI_MSM_ION_HEAP_NUM	7
 #else
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
 #define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
-#define MSM_ION_QSECOM_SIZE	0x200000 /* (2MB) */
+#define MSM_ION_QSECOM_SIZE	0x500000 /* (5MB) */
 #define MMI_MSM_ION_HEAP_NUM	8
 #endif
-#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
+#define MSM_ION_MM_FW_SIZE	0xa00000 /* (10MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
