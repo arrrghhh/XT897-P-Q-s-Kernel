@@ -1,5 +1,0 @@
-kernel/drivers/leds/leds-pm8xxx.ko
-kernel/drivers/leds/leds-pm8xxx-rgb.ko
-kernel/drivers/leds/leds-lm3559.ko
-kernel/drivers/leds/leds-lm3556.ko
-kernel/drivers/leds/ledtrig-heartbeat.ko

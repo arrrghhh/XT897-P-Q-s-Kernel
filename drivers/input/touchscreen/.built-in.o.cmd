@@ -1,1 +1,0 @@
-cmd_drivers/input/touchscreen/built-in.o :=  /home/arrrghhh/cm10.1/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-ld -EL    -r -o drivers/input/touchscreen/built-in.o drivers/input/touchscreen/cyttsp3_core.o drivers/input/touchscreen/cyttsp3_i2c.o drivers/input/touchscreen/cy8c_ts.o drivers/input/touchscreen/melfas100_ts.o drivers/input/touchscreen/atmxt.o 

@@ -1,5 +1,0 @@
-kernel/drivers/power/power_supply.ko
-kernel/drivers/power/pm8xxx-ccadc.ko
-kernel/drivers/power/pm8921-bms.ko
-kernel/drivers/power/pm8921-charger.ko
-kernel/drivers/power/mmi-battery.ko

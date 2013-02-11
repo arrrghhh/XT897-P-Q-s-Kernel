@@ -1,3 +1,0 @@
-kernel/drivers/misc/tzcom.ko
-kernel/drivers/misc/qseecom.ko
-kernel/drivers/misc/sec/sec.ko

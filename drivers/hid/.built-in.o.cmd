@@ -1,1 +1,0 @@
-cmd_drivers/hid/built-in.o :=  /home/arrrghhh/cm10.1/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-ld -EL    -r -o drivers/hid/built-in.o drivers/hid/hid.o drivers/hid/hid-apple.o drivers/hid/hid-belkin.o drivers/hid/hid-logitech.o drivers/hid/hid-magicmouse.o drivers/hid/hid-microsoft.o drivers/hid/hid-motorola.o drivers/hid/usbhid/built-in.o 

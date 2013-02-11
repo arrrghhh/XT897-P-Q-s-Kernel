@@ -1,8 +1,0 @@
-kernel/drivers/hid/hid.ko
-kernel/drivers/hid/hid-apple.ko
-kernel/drivers/hid/hid-belkin.ko
-kernel/drivers/hid/hid-logitech.ko
-kernel/drivers/hid/hid-magicmouse.ko
-kernel/drivers/hid/hid-microsoft.ko
-kernel/drivers/hid/hid-motorola.ko
-kernel/drivers/hid/usbhid/usbhid.ko
