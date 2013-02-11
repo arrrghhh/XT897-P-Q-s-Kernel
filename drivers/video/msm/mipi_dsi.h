@@ -314,7 +314,10 @@ void mipi_dsi_ahb_ctrl(u32 enable);
 void cont_splash_clk_ctrl(void);
 void mipi_dsi_turn_on_clks(void);
 void mipi_dsi_turn_off_clks(void);
+int mipi_dsi_get_dsi_status(void);
 
+void mipi_dsi_regs_dump(void);
+void mipi_dsi_clear_dump_flag(void);
 #ifdef CONFIG_FB_MSM_MDP303
 void update_lane_config(struct msm_panel_info *pinfo);
 #endif

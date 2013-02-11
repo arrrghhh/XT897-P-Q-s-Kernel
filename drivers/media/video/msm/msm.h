@@ -411,8 +411,7 @@ struct msm_cam_server_dev {
 	/* info of MCTL nodes successfully probed*/
 	struct msm_mctl_node_info mctl_node_info;
 	struct mutex server_lock;
-	struct msm_isp_event_ctrl my_isp_event;
-	uint32_t my_trans_id;
+	uint32_t server_evt_id;
 };
 
 /* camera server related functions */

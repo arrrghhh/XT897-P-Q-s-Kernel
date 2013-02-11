@@ -513,6 +513,7 @@ static int power_suspend_late(struct device *dev)
 				ns);
 	}
 	longest_background_lock = NULL;
+	longest = 0;
 	early_suspend_called = 0;
 #endif
 	if (debug_mask & DEBUG_SUSPEND)

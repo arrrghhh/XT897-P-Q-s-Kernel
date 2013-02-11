@@ -1,0 +1,2 @@
+kernel/drivers/regulator/gpio-regulator.ko
+kernel/drivers/regulator/pm8xxx-regulator.ko

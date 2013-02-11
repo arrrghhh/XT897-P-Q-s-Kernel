@@ -48,6 +48,24 @@ static struct {
 	struct delayed_work wcnss_work;
 } *penv = NULL;
 
+/* Option 2 + */
+/*
+   Pre-allocate memory for WLAN driver VosContextType struct
+   Need to revisit the size of the struct if there is any field added in VosContextType
+   History:
+   06/29/2012    M8960AAAAANLYA100708A.1 release       VosContextType size is 111032
+*/
+#define VOS_CONTEXT_MEMORY_SIZE (110 * 1024)   
+static unsigned char vos_memory[VOS_CONTEXT_MEMORY_SIZE];
+void wcnss_get_wlan_vos_memory(void **ptr, size_t *size)
+{
+    *ptr = vos_memory;
+    *size = sizeof(vos_memory);
+}
+EXPORT_SYMBOL(wcnss_get_wlan_vos_memory);
+
+/* Option 2 - */
+
 static ssize_t wcnss_serial_number_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {

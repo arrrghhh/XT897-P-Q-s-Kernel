@@ -100,6 +100,9 @@ struct mipi_mot_panel {
 	struct workqueue_struct *esd_wq;
 	struct delayed_work esd_work;
 
+	/* reboot notifier for panel flash when power down or unplug charger */
+	struct notifier_block reboot_notifier;
+
 	int (*panel_enable) (struct msm_fb_data_type *mfd);
 	int (*panel_disable) (struct msm_fb_data_type *mfd);
 	int (*panel_on)(struct msm_fb_data_type *mfd);
@@ -128,5 +131,6 @@ int mipi_mot_panel_on(struct msm_fb_data_type *mfd);
 int mipi_mot_panel_off(struct msm_fb_data_type *mfd);
 u8 mipi_mode_get_pwr_mode(struct msm_fb_data_type *mfd);
 void mipi_mot_esd_work(void);
+void mipi_mot_mipi_busy_wait(struct msm_fb_data_type *mfd);
 
 #endif /* MIPI_MOT_PANEL_H */

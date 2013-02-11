@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ /* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -401,6 +401,7 @@ void mdp4_dma_s_update(struct msm_fb_data_type *mfd);
 void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		   boolean isr);
 void mdp4_pipe_kickoff(uint32 pipe, struct msm_fb_data_type *mfd);
+void mdp4_dump(struct mdp4_statistic stat);
 int mdp4_lcdc_on(struct platform_device *pdev);
 int mdp4_lcdc_off(struct platform_device *pdev);
 void mdp4_lcdc_update(struct msm_fb_data_type *mfd);
@@ -773,4 +774,20 @@ void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg);
 void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe);
 void mdp4_iommu_attach(void);
+
+#define COMMIT_HIST_TBL_SIZE 20
+
+/*having a struct in case further info needs to be added*/
+struct mdp4_commit_hist_tbl {
+	uint32 commit_cnt;
+	int32_t stage_commit;
+};
+
+void mdp4_stats_dump(struct mdp4_statistic stat);
+void mdp4_store_commit_info(void);
+void mdp4_dump_commit_info(void);
+void mdp4_regs_dump(void);
+void mdp4_hang_panic(void);
+void mdp4_clear_dump_flags(void);
+
 #endif /* MDP_H */

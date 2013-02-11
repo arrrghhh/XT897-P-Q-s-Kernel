@@ -138,6 +138,7 @@ static void __msm_power_off(int lower_pshold)
 #endif
 	pm8xxx_reset_pwr_off(0);
 
+	pr_crit("Before PSHOLD_CTL_SU lower_pshold=%d\n", lower_pshold);
 	if (lower_pshold) {
 		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);
@@ -245,6 +246,8 @@ void arch_reset(char mode, const char *cmd)
 
 	__raw_writel(0, msm_tmr0_base + WDT0_EN);
 	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {
+		pr_crit("Before actually reset the chip, restart_reason=0x%x\n",
+			__raw_readl(restart_reason));
 		mb();
 		__raw_writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
 		mdelay(5000);

@@ -1,0 +1,4 @@
+kernel/drivers/input/misc/ct406.ko
+kernel/drivers/input/misc/keychord.ko
+kernel/drivers/input/misc/pmic8xxx-pwrkey.ko
+kernel/drivers/input/misc/uinput.ko

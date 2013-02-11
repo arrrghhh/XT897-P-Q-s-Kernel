@@ -76,7 +76,7 @@ static char  set_reg_offset_19[2] = {0xb0, 0x13};
 static char  set_reg_offset_0[2] = {0xb0, 0x0};
 
 /* DTYPE_DCS_LWRITE */
-static char display_condition_set[4] = {0xf2, 0x80, 0x03, 0x0d};
+static char display_condition_set[4] = {0xf2, 0x80, 0x05, 0x0d};
 
 static char gamma_ltps_set_update[2] = {0xf7, 0x03};
 
@@ -920,9 +920,13 @@ static int __init mipi_video_mot_hd_pt_init(void)
 	pinfo->lcdc.h_pulse_width = 12;
 	pinfo->mipi.hsa_power_stop = FALSE;
 
-	pinfo->lcdc.v_back_porch = 2;
+	/*
+	 * qcom requires the sum of the vertical back porch + pulse width
+	 * should >= 5, otherwise have underrun in some upscaling use cases
+	 */
+	pinfo->lcdc.v_back_porch = 3;
 	pinfo->lcdc.v_front_porch = 13;
-	pinfo->lcdc.v_pulse_width = 1;
+	pinfo->lcdc.v_pulse_width = 2;
 
 	pinfo->lcdc.border_clr = 0x0;
 	pinfo->lcdc.underflow_clr = 0xff;

@@ -743,7 +743,6 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 	if (!wait_for_completion_timeout(&adc_pmic->adc_rslt_completion,
 					PM8XXX_ADC_TIMEOUT)) {
 		pr_err("%s: ADC timeout rc=%d, channel=%d\n", __func__, rc, channel);
-		disable_irq(adc_pmic->adc_irq);
 		if (pm8xxx_adc_configure(adc_pmic->conv)) {
 			pr_err("%s: Reconfigure ADC failed\n", __func__);
 			rc = -EINVAL;
@@ -752,7 +751,7 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 		if (!wait_for_completion_timeout(&adc_pmic->adc_rslt_completion,
 						 PM8XXX_ADC_TIMEOUT)) {
 			pr_err("%s: timeout again\n", __func__);
-			disable_irq(adc_pmic->adc_irq);
+			goto fail;
 		}
 	}
 

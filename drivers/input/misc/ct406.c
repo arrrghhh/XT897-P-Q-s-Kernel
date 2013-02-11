@@ -34,7 +34,7 @@
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
 
-#define CT406_I2C_RETRIES	5
+#define CT406_I2C_RETRIES	2
 #define CT406_I2C_RETRY_DELAY	10
 
 #define CT406_COMMAND_SELECT		0x80
@@ -116,9 +116,13 @@
 
 #define CT406_PROXIMITY_NEAR		30	/* 30 mm */
 #define CT406_PROXIMITY_FAR		1000	/* 1 meter */
+#define CT406_PROXIMITY_SUS		2000	/* 2 meter */
+#define CT406_PROXIMITY_RES		4000	/* 4 meter */
 
 #define CT406_ALS_LOW_TO_HIGH_THRESHOLD	200	/* 200 lux */
 #define CT406_ALS_HIGH_TO_LOW_THRESHOLD	100	/* 100 lux */
+
+#define CT406_ALS_IRQ_DELTA_PERCENT	5
 
 #define CT40X_REV_ID_CT405		0x02
 #define CT40X_REV_ID_CT406a		0x03
@@ -169,6 +173,7 @@ struct ct406_data {
 	unsigned int prox_low_threshold;
 	unsigned int prox_high_threshold;
 	unsigned int als_low_threshold;
+	unsigned int als_high_threshold;
 	u16 prox_saturation_threshold;
 	u16 prox_covered_offset;
 	u16 prox_uncovered_offset;
@@ -420,7 +425,7 @@ static void ct406_write_als_thresholds(struct ct406_data *ct)
 {
 	u8 reg_data[5] = {0};
 	unsigned int ailt = ct->als_low_threshold;
-	unsigned int aiht = CT406_C0DATA_MAX;
+	unsigned int aiht = ct->als_high_threshold;
 	int error;
 
 	reg_data[0] = (CT406_AILTL | CT406_COMMAND_AUTO_INCREMENT);
@@ -474,6 +479,7 @@ static void ct406_als_mode_sunlight(struct ct406_data *ct)
 
 	ct->als_mode = CT406_ALS_MODE_SUNLIGHT;
 	ct->als_low_threshold = ct->prox_saturation_threshold;
+	ct->als_high_threshold = CT406_C0DATA_MAX;
 	ct406_write_als_thresholds(ct);
 }
 
@@ -516,6 +522,7 @@ static void ct406_als_mode_low_lux(struct ct406_data *ct)
 
 	ct->als_mode = CT406_ALS_MODE_LOW_LUX;
 	ct->als_low_threshold = CT406_C0DATA_MAX - 1;
+	ct->als_high_threshold = CT406_C0DATA_MAX;
 	ct406_write_als_thresholds(ct);
 }
 
@@ -558,6 +565,7 @@ static void ct406_als_mode_high_lux(struct ct406_data *ct)
 
 	ct->als_mode = CT406_ALS_MODE_HIGH_LUX;
 	ct->als_low_threshold = CT406_C0DATA_MAX - 1;
+	ct->als_high_threshold = CT406_C0DATA_MAX;
 	ct406_write_als_thresholds(ct);
 }
 
@@ -1022,6 +1030,7 @@ static void ct406_report_als(struct ct406_data *ct)
 	unsigned int c1data;
 	unsigned int ratio;
 	unsigned int lux = 0;
+	unsigned int threshold_delta;
 
 	reg_data[0] = (CT406_C0DATA | CT406_COMMAND_AUTO_INCREMENT);
 	error = ct406_i2c_read(ct, reg_data, 4);
@@ -1033,6 +1042,18 @@ static void ct406_report_als(struct ct406_data *ct)
 	if (ct406_debug & CT406_DBG_INPUT)
 		pr_info("%s: C0DATA = %d, C1DATA = %d\n",
 			 __func__, c0data, c1data);
+
+	threshold_delta = c0data * CT406_ALS_IRQ_DELTA_PERCENT / 100;
+	if (threshold_delta == 0)
+		threshold_delta = 1;
+	if (c0data > threshold_delta)
+		ct->als_low_threshold = c0data - threshold_delta;
+	else
+		ct->als_low_threshold = 0;
+	ct->als_high_threshold = c0data + threshold_delta;
+	if (ct->als_high_threshold > CT406_C0DATA_MAX)
+		ct->als_high_threshold = CT406_C0DATA_MAX;
+	ct406_write_als_thresholds(ct);
 
 	/* calculate lux using piecewise function from TAOS */
 	if (c0data == 0)
@@ -1426,6 +1447,10 @@ static void ct406_suspend(struct early_suspend *handler)
 
 	mutex_lock(&ct406_misc_data->mutex);
 
+	input_event(ct406_misc_data->dev, EV_MSC, MSC_RAW,
+				CT406_PROXIMITY_SUS);
+	input_sync(ct406_misc_data->dev);
+
 	ct406_disable_als(ct406_misc_data);
 
 	if (!ct406_misc_data->prox_requested)
@@ -1442,6 +1467,10 @@ static void ct406_resume(struct early_suspend *handler)
 		pr_info("%s\n", __func__);
 
 	mutex_lock(&ct406_misc_data->mutex);
+
+	input_event(ct406_misc_data->dev, EV_MSC, MSC_RAW,
+				CT406_PROXIMITY_RES);
+	input_sync(ct406_misc_data->dev);
 
 	ct406_device_power_on(ct406_misc_data);
 	ct406_device_init(ct406_misc_data);
@@ -1613,6 +1642,7 @@ static int ct406_probe(struct i2c_client *client,
 	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
+	ct->ct406_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
         ct->ct406_early_suspend.suspend = ct406_suspend;
         ct->ct406_early_suspend.resume = ct406_resume;
         register_early_suspend(&ct->ct406_early_suspend);

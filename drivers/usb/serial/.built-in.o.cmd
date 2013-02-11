@@ -1,0 +1,1 @@
+cmd_drivers/usb/serial/built-in.o :=  /home/arrrghhh/cm10.1/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-ld -EL    -r -o drivers/usb/serial/built-in.o drivers/usb/serial/usbserial.o drivers/usb/serial/qcserial.o drivers/usb/serial/usb_wwan.o 

@@ -1,0 +1,2 @@
+kernel/drivers/media/video/gspca/gspca_main.ko
+kernel/drivers/media/radio/radio-iris-transport.ko

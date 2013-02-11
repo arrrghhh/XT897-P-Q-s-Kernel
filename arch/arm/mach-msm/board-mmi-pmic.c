@@ -911,9 +911,9 @@ void __init msm8960_pm_init(unsigned wakeup_irq)
 }
 
 void __init pm8921_init(struct pm8xxx_keypad_platform_data *keypad,
-						int mode, int cool_temp,
-			int warm_temp, void *cb, int lock,
-			int hot_temp, int hot_temp_offset)
+			int mode, int cool_temp, int warm_temp,
+			void *cb, int lock, int hot_temp, int hot_temp_offset,
+			int hot_temp_pcb, signed char hot_temp_pcb_offset)
 {
 	msm8960_device_ssbi_pmic.dev.platform_data =
 				&msm8960_ssbi_pm8921_pdata;
@@ -930,6 +930,9 @@ void __init pm8921_init(struct pm8xxx_keypad_platform_data *keypad,
 #ifdef CONFIG_PM8921_EXTENDED_INFO
 	pm8921_platform_data.charger_pdata->hot_temp = hot_temp;
 	pm8921_platform_data.charger_pdata->hot_temp_offset = hot_temp_offset;
+	pm8921_platform_data.charger_pdata->hot_temp_pcb = hot_temp_pcb;
+	pm8921_platform_data.charger_pdata->hot_temp_pcb_offset =
+		hot_temp_pcb_offset;
 #endif
 #ifdef CONFIG_PM8921_FACTORY_SHUTDOWN
 	pm8921_platform_data.charger_pdata->arch_reboot_cb = cb;

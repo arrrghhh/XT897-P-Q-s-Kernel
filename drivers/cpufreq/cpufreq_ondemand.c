@@ -94,6 +94,7 @@ struct cpu_dbs_info_s {
 	unsigned int rate_mult;
 	int cpu;
 	unsigned int sample_type:1;
+	unsigned int timer_initialized:1;
 	/*
 	 * percpu mutex that serializes governor limit change with
 	 * do_dbs_timer invocation. We do not want do_dbs_timer to run
@@ -113,6 +114,8 @@ static unsigned int dbs_enable;	/* number of CPUs using this policy */
  */
 static DEFINE_MUTEX(dbs_mutex);
 
+static DEFINE_MUTEX(psb_mutex);
+
 static struct workqueue_struct *input_wq;
 
 static DEFINE_PER_CPU(struct work_struct, dbs_refresh_work);
@@ -126,6 +129,7 @@ static struct dbs_tuners {
 	int          powersave_bias;
 	unsigned int io_is_busy;
 	unsigned int refresh_speed;
+	unsigned int cpu_boost_time;
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
@@ -133,7 +137,17 @@ static struct dbs_tuners {
 	.refresh_speed = 0,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
+	.cpu_boost_time = 0,
 };
+
+struct cpu_boost_work_struct {
+	struct delayed_work work;
+};
+struct cpu_boost_main_struct {
+	struct cpu_boost_work_struct *work;
+};
+static struct mutex cbs_lock;
+static struct cpu_boost_main_struct *cbs;
 
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
 							cputime64_t *wall)
@@ -300,6 +314,13 @@ static ssize_t show_powersave_bias
 	return snprintf(buf, PAGE_SIZE, "%d\n", dbs_tuners_ins.powersave_bias);
 }
 
+static ssize_t show_cpu_boost_time
+(struct kobject *kobj, struct attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", dbs_tuners_ins.cpu_boost_time);
+}
+
+
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
 {
@@ -431,8 +452,11 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 		bypass = 1;
 	}
 
+	mutex_lock(&psb_mutex);
+
 	if (input == dbs_tuners_ins.powersave_bias) {
 		/* no change */
+		mutex_unlock(&psb_mutex);
 		return count;
 	}
 
@@ -467,9 +491,9 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 
 			dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 			if (dbs_info->cur_policy) {
+				dbs_timer_exit(dbs_info);
 				/* cpu using ondemand, cancel dbs timer */
 				mutex_lock(&dbs_info->timer_mutex);
-				dbs_timer_exit(dbs_info);
 
 				ondemand_powersave_bias_setspeed(
 					dbs_info->cur_policy,
@@ -481,6 +505,8 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 			unlock_policy_rwsem_write(cpu);
 		}
 	}
+
+	mutex_unlock(&psb_mutex);
 
 	return count;
 }
@@ -500,6 +526,49 @@ static ssize_t store_refresh_speed(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+#define CPUBOOST_TIME_MAX 10000           /* 10sec */
+static ssize_t store_cpu_boost_time(struct kobject *a, struct attribute *b,
+				    const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	if (!cbs || !cbs->work)
+		return -ENODEV;
+
+	ret = sscanf(buf, "%u", &input);
+
+	if (ret != 1) {
+		return -EINVAL;
+	}
+
+	if (input > CPUBOOST_TIME_MAX) {
+		input = CPUBOOST_TIME_MAX;
+	}
+
+	mutex_lock(&cbs_lock);
+
+	dbs_tuners_ins.cpu_boost_time = input;
+	cancel_delayed_work(&(cbs->work->work));
+
+	if (input > 0) {
+		const char bias[] = "-1000";
+		/* set CPU frequency to the max */
+		store_powersave_bias(NULL, NULL, bias, 1);
+		schedule_delayed_work(&(cbs->work->work), msecs_to_jiffies(input));
+	}
+
+	if (input == 0) {
+		const char bias[] = "0";
+		/* restore default CPU frequency scaling mechanism */
+		store_powersave_bias(NULL, NULL, bias, 1);
+	}
+
+	mutex_unlock(&cbs_lock);
+
+	return count;
+}
+
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
 define_one_global_rw(up_threshold);
@@ -508,6 +577,7 @@ define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(powersave_bias);
 define_one_global_rw(refresh_speed);
+define_one_global_rw(cpu_boost_time);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -519,6 +589,7 @@ static struct attribute *dbs_attributes[] = {
 	&powersave_bias.attr,
 	&io_is_busy.attr,
 	&refresh_speed.attr,
+	&cpu_boost_time.attr,
 	NULL
 };
 
@@ -728,6 +799,10 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
 
+	if (dbs_info->timer_initialized == 1)
+		return;
+
+	dbs_info->timer_initialized = 1;
 	if (num_online_cpus() > 1)
 		delay -= jiffies % delay;
 
@@ -739,6 +814,8 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info)
 {
 	cancel_delayed_work_sync(&dbs_info->work);
+
+	dbs_info->timer_initialized = 0;
 }
 
 /*
@@ -987,6 +1064,33 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	return 0;
 }
 
+static void cpu_boost_process_work(struct work_struct *work)
+{
+	const char bias[] = "0";
+
+	mutex_lock(&cbs_lock);
+
+	/* restore default CPU frequency scaling mechanism */
+	store_powersave_bias(NULL, NULL, bias, 1);
+
+	dbs_tuners_ins.cpu_boost_time = 0;
+
+	mutex_unlock(&cbs_lock);
+}
+
+static void cpu_boost_init(void)
+{
+	mutex_init(&cbs_lock);
+	cbs = kzalloc(sizeof(struct cpu_boost_main_struct), GFP_KERNEL);
+	if (cbs) {
+		cbs->work = kzalloc(sizeof(struct cpu_boost_work_struct),
+								GFP_KERNEL);
+		if (cbs->work)
+			INIT_DELAYED_WORK(&(cbs->work->work),
+						cpu_boost_process_work);
+	}
+}
+
 static int __init cpufreq_gov_dbs_init(void)
 {
 	cputime64_t wall;
@@ -1021,6 +1125,8 @@ static int __init cpufreq_gov_dbs_init(void)
 	for_each_possible_cpu(i) {
 		INIT_WORK(&per_cpu(dbs_refresh_work, i), dbs_refresh_callback);
 	}
+
+	cpu_boost_init();
 
 	return cpufreq_register_governor(&cpufreq_gov_ondemand);
 }

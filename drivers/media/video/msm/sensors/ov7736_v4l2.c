@@ -214,6 +214,7 @@ static struct msm_camera_i2c_reg_conf ov7736_recommend_settings[] = {
 	{0x5688, 0x03},
 	{0x380C, 0x03},
 	{0x380D, 0x14},
+	{0x3818, 0xE0},
 };
 
 static struct msm_camera_i2c_conf_array ov7736_init_conf[] = {

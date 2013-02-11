@@ -1,0 +1,8 @@
+kernel/drivers/mfd/mfd-core.ko
+kernel/drivers/mfd/wcd9310-core.ko
+kernel/drivers/mfd/wcd9310-irq.ko
+kernel/drivers/mfd/pm8921-core.ko
+kernel/drivers/mfd/pm8921-core.ko
+kernel/drivers/mfd/pm8xxx-pwm.ko
+kernel/drivers/mfd/pm8xxx-misc.ko
+kernel/drivers/mfd/pm8xxx-batt-alarm.ko

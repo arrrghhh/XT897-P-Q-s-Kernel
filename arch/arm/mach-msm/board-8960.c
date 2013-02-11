@@ -925,13 +925,13 @@ static struct tabla_pdata tabla_platform_data = {
 	{
 		.name = "VDDD_CDC_D",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
 	},
 	{
 		.name = "CDC_VDDA_A_1P2V",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
 	},
 	},
@@ -992,13 +992,13 @@ static struct tabla_pdata tabla20_platform_data = {
 	{
 		.name = "VDDD_CDC_D",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
 	},
 	{
 		.name = "CDC_VDDA_A_1P2V",
 		.min_uV = 1225000,
-		.max_uV = 1225000,
+		.max_uV = 1250000,
 		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
 	},
 	},

@@ -580,6 +580,71 @@ struct msm_camera_gpio_conf msm_camif_gpio_conf_mclk1 = {
 	.cam_gpio_tbl = msm_cam_gpio_2d_tbl_mclk1,
 	.cam_gpio_tbl_size = ARRAY_SIZE(msm_cam_gpio_2d_tbl_mclk1),
 };
+
+void update_camera_gpio_cfg(struct msm_camera_sensor_info sensor_info,
+		uint8_t drv_strength)
+{
+	int i;
+	int num_configs = ARRAY_SIZE(msm8960_cam_common_configs);
+	bool found = false;
+
+	for (i = 0; i < num_configs; i++) {
+		if (msm8960_cam_common_configs[i].gpio ==
+				sensor_info.gpio_conf->cam_gpio_tbl[0]) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pr_err("%s: Unable to configure mclk gpio!\n", __func__);
+		return;
+	}
+
+	switch (drv_strength) {
+	case 0:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_2MA;
+		break;
+	case 1:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_4MA;
+		break;
+	case 2:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_6MA;
+		break;
+	case 3:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_8MA;
+		break;
+	case 4:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_10MA;
+		break;
+	case 5:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_12MA;
+		break;
+	case 6:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_14MA;
+		break;
+	case 7:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_16MA;
+		break;
+	default:
+			pr_err("%s: Unable to find correct drive strength!\n",
+					__func__);
+	}
+
+	msm_gpiomux_install(msm8960_cam_common_configs,
+			ARRAY_SIZE(msm8960_cam_common_configs));
+	return;
+}
+
+
 #endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC

@@ -455,6 +455,9 @@ static int pn544_probe(struct i2c_client *client,
         pr_info("%s : request_irq failed\n", __func__);
 		goto err_request_irq_failed;
 	}
+	if (unlikely(irq_set_irq_wake(client->irq, 1)))
+		pr_err("%s : unable to make irq %d wakeup\n", __func__,
+					client->irq);
 	pn544_disable_irq(pn544_dev);
 	i2c_set_clientdata(client, pn544_dev);
 

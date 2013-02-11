@@ -29,8 +29,8 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#define ATMXT_DRIVER_VERSION        "YN-03-00"
-#define ATMXT_DRIVER_DATE           "2012-06-18"
+#define ATMXT_DRIVER_VERSION        "YN-04-01"
+#define ATMXT_DRIVER_DATE           "2012-06-28"
 
 #ifdef CONFIG_TOUCHSCREEN_DEBUG
 #define atmxt_dbg(dd, level, format, args...) \
@@ -61,24 +61,20 @@
 #define ATMXT_I2C_WAIT_TIME         50
 #define ATMXT_MAX_TOUCHES           10
 #define ATMXT_ABS_RESERVED          0xFFFF
-#define ATMXT_IC_RESET_HOLD_TIME    50
+#define ATMXT_IC_RESET_HOLD_TIME    1000
 
 
 enum atmxt_driver_state {
 	ATMXT_DRV_ACTIVE,
 	ATMXT_DRV_IDLE,
 	ATMXT_DRV_REFLASH,
-	ATMXT_DRV_PROBE,
-	ATMXT_DRV_WAITING,
-	ATMXT_DRV_ERROR,
+	ATMXT_DRV_INIT,
 };
 static const char * const atmxt_driver_state_string[] = {
 	"ACTIVE",
 	"IDLE",
 	"REFLASH",
-	"PROBE",
-	"WAITING",
-	"ERROR",
+	"INIT",
 };
 
 enum atmxt_ic_state {
@@ -86,22 +82,14 @@ enum atmxt_ic_state {
 	ATMXT_IC_SLEEP,
 	ATMXT_IC_UNKNOWN,
 	ATMXT_IC_BOOTLOADER,
-	ATMXT_IC_UNAVAILABLE,
 	ATMXT_IC_PRESENT,
-	ATMXT_IC_ERR_HWCONFIG,
-	ATMXT_IC_ERR_BADAPP,
-	ATMXT_IC_RECOVER,
 };
 static const char * const atmxt_ic_state_string[] = {
 	"ACTIVE",
 	"SLEEP",
 	"UNKNOWN",
 	"BOOTLOADER",
-	"UNAVAILABLE",
 	"PRESENT",
-	"ERR_HWCONFIG",
-	"ERR_BADAPP",
-	"RECOVER",
 };
 
 

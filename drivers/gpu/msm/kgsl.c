@@ -25,6 +25,7 @@
 #include <linux/ashmem.h>
 #include <linux/major.h>
 #include <linux/ion.h>
+#include <linux/delay.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -1960,6 +1961,17 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	if (lock) {
 		kgsl_check_idle_locked(dev_priv->device);
 		mutex_unlock(&dev_priv->device->mutex);
+
+		/* Reboot the device if adreno recovery failed here,
+		 * because there is low possibility to be recovered later */
+		if (dev_priv->device->state == KGSL_STATE_HUNG) {
+			KGSL_DRV_ERR(dev_priv->device,
+				"Cannot recover GPU. Device will be restarted");
+			/* Wait for graphicsd to dump kgsl snapshot to file
+			 * system. 10 seconds is chosen by trial and error */
+			msleep(10000);
+			BUG();
+		}
 	}
 
 	if (ret == 0 && (cmd & IOC_OUT)) {

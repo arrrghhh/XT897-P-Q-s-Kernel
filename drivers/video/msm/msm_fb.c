@@ -848,6 +848,8 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 				mfd->panel_power_on = curr_pwr_state;
 
 			mfd->op_enable = TRUE;
+			/* These flags are using for MDP hang debug purpose */
+			mdp4_clear_dump_flags();
 		} else {
 			if (pdata->power_ctrl)
 				pdata->power_ctrl(FALSE);

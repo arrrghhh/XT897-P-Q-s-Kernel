@@ -1,0 +1,1 @@
+cmd_drivers/video/backlight/built-in.o :=  /home/arrrghhh/cm10.1/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-ld -EL    -r -o drivers/video/backlight/built-in.o drivers/video/backlight/backlight.o drivers/video/backlight/generic_bl.o drivers/video/backlight/lm3532_bl.o 

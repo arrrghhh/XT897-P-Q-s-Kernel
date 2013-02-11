@@ -1,0 +1,1 @@
+cmd_drivers/media/video/msm/wfd/built-in.o :=  /home/arrrghhh/cm10.1/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-ld -EL    -r -o drivers/media/video/msm/wfd/built-in.o drivers/media/video/msm/wfd/mdp-subdev.o drivers/media/video/msm/wfd/enc-subdev.o drivers/media/video/msm/wfd/vsg-subdev.o drivers/media/video/msm/wfd/wfd-ioctl.o 

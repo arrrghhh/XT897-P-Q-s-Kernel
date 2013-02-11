@@ -158,6 +158,11 @@ void mipi_dsi_turn_off_clks(void)
 	mipi_dsi_ahb_ctrl(0);
 }
 
+int mipi_dsi_get_dsi_status(void)
+{
+	return MIPI_INP(MIPI_DSI_BASE + 0x04);
+}
+
 static void mipi_dsi_action(struct list_head *act_list)
 {
 	struct list_head *lp;
@@ -1692,4 +1697,44 @@ int mipi_reg_read(struct msm_fb_data_type *mfd, __u16 address,
 	pr_debug("%s done!\n", __func__);
 
 	return 0;
+}
+
+static void dsi_reg_range_dump(int offset, int range)
+{
+	uint32 i, addr_start, addr;
+	addr_start = (uint32)MIPI_DSI_BASE + offset;
+	for (i = 0; i < range ;) {
+		addr = addr_start + i;
+		pr_err("0x%8x:%08x %08x %08x %08x %08x %08x %08x %08x\n",
+			(uint32)(addr),
+			(uint32)inpdw(addr), (uint32)inpdw(addr + 4),
+			(uint32)inpdw(addr + 8), (uint32)inpdw(addr + 12),
+			(uint32)inpdw(addr + 16), (uint32)inpdw(addr + 20),
+			(uint32)inpdw(addr + 24), (uint32)inpdw(addr + 28));
+		i += 32;
+	}
+}
+
+static bool dump_dsi_regs;
+void mipi_dsi_regs_dump(void)
+{
+	if (dump_dsi_regs == false) {
+		mipi_dsi_turn_on_clks();
+		pr_err("------- DSI Regs dump starts ------\n");
+		dsi_reg_range_dump(0, 0xcc);
+		dsi_reg_range_dump(0x108, 0x20);
+		dsi_reg_range_dump(0x190, 0xc8);
+		dsi_reg_range_dump(0x280, 0x10);
+		dsi_reg_range_dump(0x440, 0xb0);
+		dsi_reg_range_dump(0x500, 0x5c);
+		pr_err("------- DSI Regs dump done ------\n");
+
+		dump_dsi_regs = true;
+		mipi_dsi_turn_off_clks();
+	}
+}
+
+void mipi_dsi_clear_dump_flag(void)
+{
+	dump_dsi_regs = false;
 }

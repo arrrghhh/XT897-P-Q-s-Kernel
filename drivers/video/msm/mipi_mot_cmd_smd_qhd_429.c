@@ -20,7 +20,7 @@
 #define NUMBER_BRIGHTNESS_LEVELS    30
 /* 200 nits. Default brightness should be same with it in bootloader */
 #define DEFAULT_BRIGHTNESS_LEVELS 19
-#define DEFAULT_DELAY 0
+#define DEFAULT_DELAY 1
 
 static struct mipi_mot_panel *mot_panel;
 
@@ -612,10 +612,10 @@ static void enable_acl(struct msm_fb_data_type *mfd)
 	if ((mfd->op_enable != 0) && (mfd->panel_power_on != 0)) {
 		dsi_tx_buf = mot_panel->mot_tx_buf;
 		mutex_lock(&mfd->dma->ov_mutex);
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
-		/* Todo: add 50us delay between frame and cmd or between frames */
-		mipi_dsi_mdp_busy_wait(mfd);
-		mdp4_dsi_blt_dmap_busy_wait(mfd);
+		/*
+		 * Todo: add 50us delay between frame and cmd or between frames
+		 */
+		mipi_mot_mipi_busy_wait(mfd);
 		mipi_set_tx_power_mode(0);
 		ACL_enable_disable_settings[1] = mot_panel->acl_enabled;
 		mipi_dsi_cmds_tx(mfd, dsi_tx_buf, acl_enable_disable,
@@ -802,10 +802,8 @@ static void panel_set_backlight(struct msm_fb_data_type *mfd)
 	set_brightness_cmds[0].payload = getGamma(idx);
 
 	mutex_lock(&mfd->dma->ov_mutex);
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
 	/* Todo: add 50us delay between frame and cmd or between frames */
-	mipi_dsi_mdp_busy_wait(mfd);
-	mdp4_dsi_blt_dmap_busy_wait(mfd);
+	mipi_mot_mipi_busy_wait(mfd);
 
 	mipi_set_tx_power_mode(0);
 	mipi_dsi_cmds_tx(mfd, dsi_tx_buf, set_brightness_cmds,
