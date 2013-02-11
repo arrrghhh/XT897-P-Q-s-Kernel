@@ -4,7 +4,6 @@ source_arch/arm/mach-msm/acpuclock-8960.o := arch/arm/mach-msm/acpuclock-8960.c
 
 deps_arch/arm/mach-msm/acpuclock-8960.o := \
     $(wildcard include/config/ctl.h) \
-    $(wildcard include/config/cpu/overclock.h) \
     $(wildcard include/config/cpu/freq/msm.h) \
   include/linux/kernel.h \
     $(wildcard include/config/lbdaf.h) \
