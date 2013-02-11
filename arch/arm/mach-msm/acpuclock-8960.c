@@ -490,7 +490,6 @@ static struct acpu_level acpu_freq_tbl_8960_kraitv2_slow[] = {
 	{ 1, {  1620000, HFPLL, 1, 0, 0x3C }, L2(17), 1275000 },
 	{ 1, {  1728000, HFPLL, 1, 0, 0x40 }, L2(17), 1325000 },
 	{ 1, {  1836000, HFPLL, 1, 0, 0x44 }, L2(17), 1350000 },
-	{ 0, { 0 } }
 };
 
 static struct acpu_level acpu_freq_tbl_8960_kraitv2_nom[] = {
@@ -520,7 +519,6 @@ static struct acpu_level acpu_freq_tbl_8960_kraitv2_nom[] = {
 	{ 1, {  1620000, HFPLL, 1, 0, 0x3C }, L2(19), 1225000 },
 	{ 1, {  1728000, HFPLL, 1, 0, 0x40 }, L2(19), 1275000 },
 	{ 1, {  1836000, HFPLL, 1, 0, 0x44 }, L2(19), 1300000 },
-	{ 0, { 0 } }
 };
 
 static struct acpu_level acpu_freq_tbl_8960_kraitv2_fast[] = {
@@ -550,7 +548,6 @@ static struct acpu_level acpu_freq_tbl_8960_kraitv2_fast[] = {
 	{ 1, {  1620000, HFPLL, 1, 0, 0x3C }, L2(19), 1175000 },
 	{ 1, {  1728000, HFPLL, 1, 0, 0x40 }, L2(19), 1225000 },
 	{ 1, {  1836000, HFPLL, 1, 0, 0x44 }, L2(19), 1250000 },
-	{ 0, { 0 } }
 };
 
 /* TODO: Update vdd_dig and vdd_mem when voltage data is available. */
