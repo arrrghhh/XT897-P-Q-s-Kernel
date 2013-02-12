@@ -140,7 +140,7 @@ static struct scalable scalable_8960[] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x200,
 			.aux_clk_sel     = MSM_ACC0_BASE  + 0x014,
 			.l2cpmr_iaddr    = L2CPUCPMR_IADDR,
-			.vreg[VREG_CORE] = { "krait0",     1300000 },
+			.vreg[VREG_CORE] = { "krait0",     1350000 },
 			.vreg[VREG_MEM]  = { "krait0_mem", 1150000,
 					     RPM_VREG_VOTER1,
 					     RPM_VREG_ID_PM8921_L24 },
@@ -158,7 +158,7 @@ static struct scalable scalable_8960[] = {
 			.hfpll_base      = MSM_HFPLL_BASE + 0x300,
 			.aux_clk_sel     = MSM_ACC1_BASE  + 0x014,
 			.l2cpmr_iaddr    = L2CPUCPMR_IADDR,
-			.vreg[VREG_CORE] = { "krait1",     1300000 },
+			.vreg[VREG_CORE] = { "krait1",     1350000 },
 			.vreg[VREG_MEM]  = { "krait0_mem", 1150000,
 					     RPM_VREG_VOTER2,
 					     RPM_VREG_ID_PM8921_L24 },
@@ -488,8 +488,7 @@ static struct acpu_level acpu_freq_tbl_8960_kraitv2_slow[] = {
 	{ 1, {  1458000, HFPLL, 1, 0, 0x36 }, L2(16), 1237500 },
 	{ 1, {  1512000, HFPLL, 1, 0, 0x38 }, L2(16), 1250000 },
 	{ 1, {  1620000, HFPLL, 1, 0, 0x3C }, L2(17), 1275000 },
-	{ 1, {  1728000, HFPLL, 1, 0, 0x40 }, L2(17), 1325000 },
-	{ 1, {  1836000, HFPLL, 1, 0, 0x44 }, L2(17), 1350000 },
+	{ 0, { 0 } }
 };
 
 static struct acpu_level acpu_freq_tbl_8960_kraitv2_nom[] = {
@@ -517,8 +516,7 @@ static struct acpu_level acpu_freq_tbl_8960_kraitv2_nom[] = {
 	{ 1, {  1458000, HFPLL, 1, 0, 0x36 }, L2(18), 1187500 },
 	{ 1, {  1512000, HFPLL, 1, 0, 0x38 }, L2(18), 1200000 },
 	{ 1, {  1620000, HFPLL, 1, 0, 0x3C }, L2(19), 1225000 },
-	{ 1, {  1728000, HFPLL, 1, 0, 0x40 }, L2(19), 1275000 },
-	{ 1, {  1836000, HFPLL, 1, 0, 0x44 }, L2(19), 1300000 },
+	{ 0, { 0 } }
 };
 
 static struct acpu_level acpu_freq_tbl_8960_kraitv2_fast[] = {
@@ -546,8 +544,7 @@ static struct acpu_level acpu_freq_tbl_8960_kraitv2_fast[] = {
 	{ 1, {  1458000, HFPLL, 1, 0, 0x36 }, L2(18), 1137500 },
 	{ 1, {  1512000, HFPLL, 1, 0, 0x38 }, L2(18), 1150000 },
 	{ 1, {  1620000, HFPLL, 1, 0, 0x3C }, L2(19), 1175000 },
-	{ 1, {  1728000, HFPLL, 1, 0, 0x40 }, L2(19), 1225000 },
-	{ 1, {  1836000, HFPLL, 1, 0, 0x44 }, L2(19), 1250000 },
+	{ 0, { 0 } }
 };
 
 /* TODO: Update vdd_dig and vdd_mem when voltage data is available. */
