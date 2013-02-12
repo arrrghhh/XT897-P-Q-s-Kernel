@@ -54,7 +54,7 @@
 #    echo "" >> $LOG
 
     # Finally making the kernel
-    $MAKE zImage
+    $MAKE zImage 2>&1 | tee /home/arrrghhh/Desktop/kernelbuildlog.txt
     $MAKE modules
 
 #    echo "Compiled" >> $LOG
