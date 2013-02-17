@@ -1,0 +1,55 @@
+#ui_print("************************************************");
+#ui_print("*                                              *");
+#ui_print("*                   Kernel                     *");
+#ui_print("*                    by                        *");
+#ui_print("*                  arrrghhh                    *");
+#ui_print("*                                              *");
+#ui_print("*                                              *");
+#ui_print("************************************************");
+
+#mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/cache", "/cache");
+#mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", "/system");
+#mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/userdata", "/data");
+
+#delete_recursive("/system/lib/modules");
+
+#delete_recursive("/cache");
+#delete_recursive("/cache");
+#delete_recursive("/data/dalvik-cache");
+#delete_recursive("/data/dalvik-cache");
+
+#package_extract_dir("system", "/system");
+
+#set_perm_recursive(0, 0, 0755, 0644, "/system");
+
+
+#ui_print("************************************************");
+#ui_print("*                                              *");           
+#ui_print("*                      |                       *");
+#ui_print("*                      |                       *");
+#ui_print("*                     ___                      *");
+#ui_print("*                    |   |                     *");
+#ui_print("*                    |   |                     *");    
+#ui_print("*                    |   |                     *");    
+#ui_print("*                    |   |                     *");    
+#ui_print("*                   =======                    *");
+#ui_print("*                     | |                      *"); 
+#ui_print("*                    =====                     *");
+#ui_print("*                                              *");           
+#ui_print("*            Injecting the Plague!!!           *");
+#ui_print("*                                              *");           
+#ui_print("************************************************");
+
+package_extract_file("boot.img", "/dev/block/platform/msm_sdcc.1/by-name/boot");
+
+#package_extract_file("boot.img","/tmp/boot.img");
+#write_raw_image("/tmp/boot.img", "/dev/block/platform/msm_sdcc.1/by-name/boot");
+#delete("/tmp/boot.img");
+
+#run_program("/sbin/busybox", "dd", "if=/dev/zero", "of=/dev/block/platform/msm_sdcc.1/by-name/boot");
+#run_program("/sbin/busybox", "dd", "if=/tmp/boot.img", "of=/dev/block/platform/msm_sdcc.1/by-name/boot");
+
+
+#unmount("/cache");
+#unmount("/system");
+#unmount("/data");
