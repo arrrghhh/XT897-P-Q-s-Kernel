@@ -6,8 +6,8 @@
     THREADS=$(expr 4 + $(grep processor /proc/cpuinfo | wc -l))
     DEFCONFIG=msm8960_mmi_defconfig
     ARCH="ARCH=arm"
-#    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/google/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
-    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/linaro/android-toolchain-eabi_4.6-2012.07/bin/arm-eabi-"
+    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/google/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
+#    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/linaro/android-toolchain-eabi_4.6-2012.07/bin/arm-eabi-"
     # Setup our directories now
     DIR=~/trees/kernel
     TOOLS=~/xt897/Tools
