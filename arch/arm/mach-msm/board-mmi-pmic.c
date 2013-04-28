@@ -82,6 +82,9 @@
 #include "board-mmi.h"
 #endif
 
+extern void mmi_buzz_blip(void);
+extern void mmi_sw_ap_reset(void);
+
 #include "timer.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -119,6 +122,8 @@ static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.pull_up		= 1,
 	.kpd_trigger_delay_us	= 15625,
 	.wakeup			= 1,
+	.buzz			= mmi_buzz_blip,
+	.reboot			= mmi_sw_ap_reset,
 };
 
 static int pm8921_therm_mitigation[] = {
@@ -823,11 +828,17 @@ struct msm_cpuidle_state msm_cstates[] __initdata = {
 	{0, 0, "C0", "WFI",
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
 
-	{0, 1, "C2", "POWER_COLLAPSE",
+	{0, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
+
+	{0, 2, "C2", "POWER_COLLAPSE",
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE},
 
 	{1, 0, "C0", "WFI",
 		MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT},
+
+	{1, 1, "C1", "STANDALONE_POWER_COLLAPSE",
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE},
 };
 
 struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
@@ -836,7 +847,14 @@ struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
 		.suspend_supported = 1,
 		.idle_enabled = 0,
 		.suspend_enabled = 0,
-		.residency = 10800,
+		.residency = 0,
+	},
+
+	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
 	},
 
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
@@ -851,7 +869,14 @@ struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
 		.suspend_supported = 1,
 		.idle_enabled = 0,
 		.suspend_enabled = 0,
-		.residency = 10800,
+		.residency = 0,
+	},
+
+	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 0,
+		.suspend_enabled = 0,
 	},
 
 	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
@@ -911,9 +936,9 @@ void __init msm8960_pm_init(unsigned wakeup_irq)
 }
 
 void __init pm8921_init(struct pm8xxx_keypad_platform_data *keypad,
-						int mode, int cool_temp,
-			int warm_temp, void *cb, int lock,
-			int hot_temp, int hot_temp_offset)
+			int mode, int cool_temp, int warm_temp,
+			void *cb, int lock, int hot_temp, int hot_temp_offset,
+			int hot_temp_pcb, signed char hot_temp_pcb_offset)
 {
 	msm8960_device_ssbi_pmic.dev.platform_data =
 				&msm8960_ssbi_pm8921_pdata;
@@ -930,6 +955,9 @@ void __init pm8921_init(struct pm8xxx_keypad_platform_data *keypad,
 #ifdef CONFIG_PM8921_EXTENDED_INFO
 	pm8921_platform_data.charger_pdata->hot_temp = hot_temp;
 	pm8921_platform_data.charger_pdata->hot_temp_offset = hot_temp_offset;
+	pm8921_platform_data.charger_pdata->hot_temp_pcb = hot_temp_pcb;
+	pm8921_platform_data.charger_pdata->hot_temp_pcb_offset =
+		hot_temp_pcb_offset;
 #endif
 #ifdef CONFIG_PM8921_FACTORY_SHUTDOWN
 	pm8921_platform_data.charger_pdata->arch_reboot_cb = cb;

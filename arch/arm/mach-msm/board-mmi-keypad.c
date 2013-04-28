@@ -292,6 +292,12 @@ static struct input_handler keypad_lock_handler = {
 
 #endif
 
+struct platform_device mmi_alsa_to_hw2_hs_device = {
+	.name	= "alsa-to-h2w",
+	.dev	= {
+		.platform_data = NULL,
+	},
+};
 int __init mmi_keypad_init(int mode)
 {
 	if (mode & MMI_KEYPAD_RESET)
@@ -303,6 +309,7 @@ int __init mmi_keypad_init(int mode)
 			pr_info("input_register_handler failed\n");
 	}
 #endif
+	platform_device_register(&mmi_alsa_to_hw2_hs_device);
 	return 0;
 }
 

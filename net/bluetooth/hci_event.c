@@ -1686,6 +1686,15 @@ unlock:
 	hci_conn_check_pending(hdev);
 }
 
+static inline bool is_sco_active(struct hci_dev *hdev)
+{
+	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
+			(hci_conn_hash_lookup_state(hdev, ESCO_LINK,
+						    BT_CONNECTED)))
+		return true;
+	return false;
+}
+
 static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_ev_conn_request *ev = (void *) skb->data;
@@ -1731,7 +1740,8 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 
 			bacpy(&cp.bdaddr, &ev->bdaddr);
 
-			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
+			if (lmp_rswitch_capable(hdev) && ((mask & HCI_LM_MASTER)
+						|| is_sco_active(hdev)))
 				cp.role = 0x00; /* Become master */
 			else
 				cp.role = 0x01; /* Remain slave */
@@ -2078,6 +2088,9 @@ static inline void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *sk
 	skb_pull(skb, sizeof(*ev));
 
 	opcode = __le16_to_cpu(ev->opcode);
+
+	if (test_bit(HCI_RESET, &hdev->flags) && (opcode != HCI_OP_RESET))
+		return;
 
 	switch (opcode) {
 	case HCI_OP_INQUIRY_CANCEL:
@@ -2634,12 +2647,6 @@ static inline void hci_link_key_request_evt(struct hci_dev *hdev, struct sk_buff
 		BT_DBG("Conn pending sec level is %d, ssp is %d, key len is %d",
 			conn->pending_sec_level, conn->ssp_mode, key->pin_len);
 	}
-	if (conn && (conn->ssp_mode == 0) &&
-		(conn->pending_sec_level == BT_SECURITY_HIGH) &&
-		(key->pin_len != 16)) {
-		BT_DBG("Security is high ignoring this key");
-		goto not_found;
-	}
 
 	if (key->key_type == 0x04 && conn && conn->auth_type != 0xff &&
 						(conn->auth_type & 0x01)) {
@@ -2886,7 +2893,7 @@ static inline void hci_sync_conn_complete_evt(struct hci_dev *hdev, struct sk_bu
 		hci_conn_hold_device(conn);
 		hci_conn_add_sysfs(conn);
 		break;
-
+	case 0x10:	/* Connection Accept Timeout Exceeded */
 	case 0x11:	/* Unsupported Feature or Parameter Value */
 	case 0x1c:	/* SCO interval rejected */
 	case 0x1a:	/* Unsupported Remote Feature */
@@ -2942,8 +2949,16 @@ static inline void hci_sync_conn_changed_evt(struct hci_dev *hdev, struct sk_buf
 static inline void hci_sniff_subrate_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_ev_sniff_subrate *ev = (void *) skb->data;
+	struct hci_conn *conn =
+		hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
 
 	BT_DBG("%s status %d", hdev->name, ev->status);
+	if (conn && (ev->max_rx_latency > hdev->sniff_max_interval)) {
+		BT_ERR("value of rx_latency:%d", ev->max_rx_latency);
+		hci_dev_lock(hdev);
+		hci_conn_enter_active_mode(conn, 1);
+		hci_dev_unlock(hdev);
+	}
 }
 
 static inline void hci_extended_inquiry_result_evt(struct hci_dev *hdev, struct sk_buff *skb)
@@ -3204,12 +3219,47 @@ static inline void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	conn->state = BT_CONNECTED;
 	conn->disc_timeout = HCI_DISCONN_TIMEOUT;
 	mgmt_connected(hdev->id, &ev->bdaddr, 1);
+	mgmt_le_conn_params(hdev->id, &ev->bdaddr,
+			__le16_to_cpu(ev->interval),
+			__le16_to_cpu(ev->latency),
+			__le16_to_cpu(ev->supervision_timeout));
 
 	hci_conn_hold(conn);
 	hci_conn_hold_device(conn);
 	hci_conn_add_sysfs(conn);
 
 	hci_proto_connect_cfm(conn, ev->status);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+static inline void hci_le_conn_update_complete_evt(struct hci_dev *hdev,
+							struct sk_buff *skb)
+{
+	struct hci_ev_le_conn_update_complete *ev = (void *) skb->data;
+	struct hci_conn *conn;
+
+	BT_DBG("%s status %d", hdev->name, ev->status);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_handle(hdev,
+				__le16_to_cpu(ev->handle));
+	if (conn == NULL) {
+		BT_ERR("Unknown connection update");
+		goto unlock;
+	}
+
+	if (ev->status) {
+		BT_ERR("Connection update unsuccessful");
+		goto unlock;
+	}
+
+	mgmt_le_conn_params(hdev->id, &conn->dst,
+			__le16_to_cpu(ev->interval),
+			__le16_to_cpu(ev->latency),
+			__le16_to_cpu(ev->supervision_timeout));
 
 unlock:
 	hci_dev_unlock(hdev);
@@ -3257,6 +3307,7 @@ static inline void hci_le_adv_report_evt(struct hci_dev *hdev,
 {
 	struct hci_ev_le_advertising_info *ev;
 	u8 num_reports;
+	s8 rssi;
 
 	num_reports = skb->data[0];
 	ev = (void *) &skb->data[1];
@@ -3264,8 +3315,10 @@ static inline void hci_le_adv_report_evt(struct hci_dev *hdev,
 	hci_dev_lock(hdev);
 
 	while (num_reports--) {
+		rssi = ev->data[ev->length];
+
 		mgmt_device_found(hdev->id, &ev->bdaddr, LE_LINK,
-					ev->bdaddr_type, 1, NULL, 0,
+					ev->bdaddr_type, 1, NULL, rssi,
 					ev->length, ev->data);
 		hci_add_adv_entry(hdev, ev);
 		ev = (void *) (ev->data + ev->length + 1);
@@ -3283,6 +3336,10 @@ static inline void hci_le_meta_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	switch (le_ev->subevent) {
 	case HCI_EV_LE_CONN_COMPLETE:
 		hci_le_conn_complete_evt(hdev, skb);
+		break;
+
+	case HCI_EV_LE_CONN_UPDATE_COMPLETE:
+		hci_le_conn_update_complete_evt(hdev, skb);
 		break;
 
 	case HCI_EV_LE_LTK_REQ:

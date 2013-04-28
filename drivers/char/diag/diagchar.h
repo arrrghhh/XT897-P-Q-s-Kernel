@@ -35,6 +35,7 @@
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
+#define UINT32_MAX	UINT_MAX
 /* Size of the buffer used for deframing a packet
   reveived from the PC tool*/
 #define HDLC_MAX 4096
@@ -53,7 +54,7 @@
 #define APPS_PROC		1
 #define QDSP_PROC		2
 #define WCNSS_PROC		3
-#define MSG_MASK_SIZE 9500
+#define MSG_MASK_SIZE 10000
 #define LOG_MASK_SIZE 8000
 #define EVENT_MASK_SIZE 1000
 #define USER_SPACE_DATA 8000
@@ -216,9 +217,6 @@ struct diagchar_dev {
 	struct work_struct diag_wcnss_mask_update_work;
 	uint8_t *msg_masks;
 	uint8_t *log_masks;
-        //Slate code starts IKASANTISPRINT-207
-        uint8_t *saved_log_masks;
-        //Slate Code ends
 	int log_masks_length;
 	uint8_t *event_masks;
 	struct diag_master_table *table;
@@ -234,12 +232,6 @@ struct diagchar_dev {
 	int logging_mode;
 	int mask_check;
 	int logging_process_id;
-	//Slate code starts IKASANTISPRINT-207
-        int slate_cmd;
-        int slate_log_count;
-        int log_cmd;
-        int log_count;
-        //Slate Code ends
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	unsigned char *buf_in_sdio;
 	unsigned char *usb_buf_mdm_out;
@@ -274,7 +266,61 @@ struct diagchar_dev {
 	struct diag_request *usb_read_mdm_ptr;
 	struct diag_request *write_ptr_mdm;
 #endif
+#ifdef CONFIG_DIAG_EXTENSION
+	struct list_head addon_list;
+#endif
 };
 
 extern struct diagchar_dev *driver;
+
+#ifdef CONFIG_DIAG_EXTENSION
+/* This structure is for addon. It is used by slate feature */
+struct diag_addon {
+	struct list_head list;
+
+	/* function list of addon
+	   return-value of the functions decide
+	   whether the callback-function of next-addon is called or not.
+	   refer to DIAGADDON_BASE below.
+	*/
+	int (*ioctl)(struct file *filp, unsigned int iocmd,
+					 unsigned long ioarg, int *retval);
+	int (*force_returntype)(int pkt_type, int *retval);
+	int (*channel_diag_write)(struct diag_request *write_ptr, int *retval);
+	void *private;
+
+	/* function list of diag-driver to use addon */
+	int (*diag_process_apps_pkt)(unsigned char *buf, int len);
+};
+
+#define DIAGADDON_BASE(func, retval, ...)                                   \
+do {                                                                        \
+	struct diag_addon *addon;                                           \
+	int next_addon_call;                                                \
+	list_for_each_entry(addon, &driver->addon_list, list) {             \
+		if (addon->func) {                                          \
+			next_addon_call = addon->func(__VA_ARGS__, retval); \
+			if (next_addon_call == false)                       \
+				break;                                      \
+		}                                                           \
+	}                                                                   \
+} while (0)
+
+#define DIAGADDON_EXIST() (!list_empty(&driver->addon_list))
+#define DIAGADDON_ioctl(retval, ...)\
+		DIAGADDON_BASE(ioctl, retval, ##__VA_ARGS__)
+#define DIAGADDON_force_returntype(retval, ...)\
+		DIAGADDON_BASE(force_returntype, retval, ##__VA_ARGS__)
+#define DIAGADDON_channel_diag_write(retval, ...)\
+		DIAGADDON_BASE(channel_diag_write, retval, ##__VA_ARGS__)
+
+int diag_addon_register(struct diag_addon *addon);
+int diag_addon_unregister(struct diag_addon *addon);
+#else
+#define DIAGADDON_EXIST() 0
+#define DIAGADDON_ioctl(retval, ...) do {} while (0)
+#define DIAGADDON_force_returntype(retval, ...) do {} while (0)
+#define DIAGADDON_channel_diag_write(retval, i...) do {} while (0)
+#endif /* endif of '#ifdef CONFIG_DIAG_EXTENSION' */
+
 #endif

@@ -74,7 +74,6 @@ static struct notifier_block emu_accy_notifier = {
 
 #define JACK_DETECT_GPIO 38
 #define JACK_DETECT_INT PM8921_GPIO_IRQ(PM8921_IRQ_BASE, JACK_DETECT_GPIO)
-#define GPIO_DETECT_USED false
 
 static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
 static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
@@ -95,6 +94,14 @@ static int msm8960_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
+
+static bool hs_detect_use_gpio;
+module_param(hs_detect_use_gpio, bool, 0444);
+MODULE_PARM_DESC(hs_detect_use_gpio, "Use GPIO for headset detection");
+
+static bool hs_detect_use_firmware;
+module_param(hs_detect_use_firmware, bool, 0444);
+MODULE_PARM_DESC(hs_detect_use_firmware, "Use firmware for headset detection");
 
 static int msm8960_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -224,31 +231,33 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 {
 	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
 
-		if (!msm8960_ext_bottom_spk_pamp)
-			return;
+		if ((msm8960_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
+			(msm8960_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
 
-		gpio_direction_output(bottom_spk_pamp_gpio, 0);
-		gpio_free(bottom_spk_pamp_gpio);
-		msm8960_ext_bottom_spk_pamp = 0;
+			gpio_direction_output(bottom_spk_pamp_gpio, 0);
+			gpio_free(bottom_spk_pamp_gpio);
+			msm8960_ext_bottom_spk_pamp = 0;
 
-		pr_debug("%s: sleeping 4 ms after turning off external Bottom"
+			pr_debug("%s: sleeping 4 ms after turning off external Bottom"
 			" Speaker Ampl\n", __func__);
 
-		usleep_range(4000, 4000);
+			usleep_range(4000, 4000);
+		}
 
 	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
 
-		if (!msm8960_ext_top_spk_pamp)
-			return;
+		if ((msm8960_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
+			(msm8960_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
 
-		gpio_direction_output(top_spk_pamp_gpio, 0);
-		gpio_free(top_spk_pamp_gpio);
-		msm8960_ext_top_spk_pamp = 0;
+			gpio_direction_output(top_spk_pamp_gpio, 0);
+			gpio_free(top_spk_pamp_gpio);
+			msm8960_ext_top_spk_pamp = 0;
 
-		pr_debug("%s: sleeping 4 ms after turning off external Top"
-			" Spkaker Ampl\n", __func__);
+			pr_debug("%s: sleeping 4 ms after turning off external Top"
+				" Spkaker Ampl\n", __func__);
 
-		usleep_range(4000, 4000);
+			usleep_range(4000, 4000);
+		}
 	} else  {
 
 		pr_err("%s: ERROR : Invalid Ext Spk Ampl. spk = 0x%08x\n",
@@ -303,6 +312,11 @@ static int emu_audio_accy_notify(struct notifier_block *nb,
 {
 	pr_debug("%s(), status = %d\n", __func__, (int)status);
 	emu_state = status;
+
+	if (emu_state == EMU_OUT && tabla_mot_get_emu_audio_state()) {
+		set_mux_ctrl_mode_for_audio(MUXMODE_AUDIO);
+		pr_debug("%s SET EMU TO MUXMODE_AUDIO\n", __func__);
+	}
 
 	return 0;
 }
@@ -801,6 +815,9 @@ static int msm8960_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			return err;
 		}
 	}
+
+	mbhc_cfg.read_fw_bin = hs_detect_use_firmware;
+
 	err = tabla_hs_detect(codec, &mbhc_cfg);
 
 	return err;

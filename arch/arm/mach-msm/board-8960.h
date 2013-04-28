@@ -105,9 +105,9 @@ extern int msm_pm8921_regulator_pdata_len __devinitdata;
 
 #endif
 
-#define MSM_PMEM_ADSP_SIZE         0x6DD0000 /* Need to be multiple of 64K */
+#define MSM_PMEM_ADSP_SIZE         0x6E00000 /* Need to be multiple of 64K */
 #define MSM_PMEM_AUDIO_SIZE        0xB4000
-#define MSM_PMEM_SIZE 0x4B00000 /* 75 Mbytes */
+#define MSM_PMEM_SIZE 0x4600000 /* 70 Mbytes */
 #define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #define MSM_HDMI_PRIM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #define MSM_RAM_CONSOLE_SIZE       128 * SZ_1K
@@ -117,15 +117,15 @@ extern int msm_pm8921_regulator_pdata_len __devinitdata;
 #ifdef CONFIG_MSM_IOMMU
 #define MSM_ION_MM_SIZE		0x3800000
 #define MSM_ION_SF_SIZE		0x0
-#define MSM_ION_QSECOM_SIZE	0x500000 /* (5MB) - can't fallback to SF */
+#define MSM_ION_QSECOM_SIZE	0x380000 /* (3.5MB) - can't fallback to SF */
 #define MMI_MSM_ION_HEAP_NUM	7
 #else
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
 #define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
-#define MSM_ION_QSECOM_SIZE	0x500000 /* (5MB) */
+#define MSM_ION_QSECOM_SIZE	0x200000 /* (2MB) */
 #define MMI_MSM_ION_HEAP_NUM	8
 #endif
-#define MSM_ION_MM_FW_SIZE	0xa00000 /* (10MB) */
+#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
@@ -248,6 +248,8 @@ extern struct platform_device msm_tsens_device;
 extern struct msm_otg_platform_data msm_otg_pdata;
 
 extern bool camera_single_mclk;
+extern void update_camera_gpio_cfg(struct msm_camera_sensor_info sensor_info,
+		uint8_t drv_strength);
 
 extern void msm8960_init_hdmi(struct platform_device *hdmi_dev,
 						struct msm_hdmi_platform_data *hdmi_data);
@@ -279,9 +281,10 @@ extern void __init pm8921_gpio_mpp_init(struct pm8xxx_gpio_init *pm8921_gpios,
 extern void __init msm8960_init_slim(void);
 extern void __init msm8960_pm_init(unsigned wakeup_irq);
 extern void __init pm8921_init(struct pm8xxx_keypad_platform_data *keypad,
-								int mode, int cool_temp,
-			       int warm_temp, void *cb, int lock,
-			       int hot_temp, int hot_temp_offset);
+			       int mode, int cool_temp, int warm_temp, void *cb,
+			       int lock, int hot_temp, int hot_temp_offset,
+			       int hot_temp_pcb,
+			       signed char hot_temp_pcb_offset);
 
 extern int  msm8960_change_memory_power(u64 start, u64 size, int change_type);
 extern void __init msm8960_map_io(void);
@@ -334,6 +337,8 @@ extern unsigned char hdmi_is_primary;
 void msm8960_init_cam(void);
 void msm8960_init_fb(void);
 void msm8960_init_pmic(void);
+struct msm_mmc_pad_drv;
+void msm8960_preset_mmc_params(int, const struct msm_mmc_pad_drv *);
 void msm8960_init_mmc(unsigned sd_detect);
 int msm8960_init_gpiomux(void);
 void msm8960_allocate_fb_region(void);

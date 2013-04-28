@@ -30,6 +30,10 @@ static char controller_drv_ver[2] = {DCS_CMD_READ_DC, 0x00};
 static char display_on[2] = {DCS_CMD_SET_DISPLAY_ON, 0x00};
 static char display_off[2] = {DCS_CMD_SET_DISPLAY_OFF, 0x00};
 static char get_power_mode[2] = {DCS_CMD_GET_POWER_MODE, 0x00};
+static char get_raw_mtp[2] = {DCS_CMD_READ_RAW_MTP, 0x00};
+static char  set_reg_offset_0[2] = {DCS_CMD_SET_OFFSET, 0x0};
+static char  set_reg_offset_8[2] = {DCS_CMD_SET_OFFSET, 0x8};
+static char  set_reg_offset_16[2] = {DCS_CMD_SET_OFFSET, 0x10};
 
 static struct dsi_cmd_desc mot_manufacture_id_cmd = {
 	DTYPE_DCS_READ, 1, 0, 1, 0, sizeof(manufacture_id), manufacture_id};
@@ -50,13 +54,24 @@ static struct dsi_cmd_desc mot_display_off_cmd = {
 static struct dsi_cmd_desc mot_get_pwr_mode_cmd = {
 	DTYPE_DCS_READ,  1, 0, 1, 0, sizeof(get_power_mode), get_power_mode};
 
+static struct dsi_cmd_desc mot_get_raw_mtp_cmd = {
+	DTYPE_DCS_READ,  1, 0, 1, 0, sizeof(get_raw_mtp), get_raw_mtp};
+
+static struct dsi_cmd_desc set_offset_cmd[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(set_reg_offset_0),
+							set_reg_offset_0},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(set_reg_offset_8),
+							set_reg_offset_8},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(set_reg_offset_16),
+							set_reg_offset_16},
+};
+
+static u8 panel_raw_mtp[RAW_MTP_SIZE];
+static u8 gamma_settings[NUM_NIT_LVLS][RAW_GAMMA_SIZE];
 
 int mipi_mot_panel_on(struct msm_fb_data_type *mfd)
 {
 	struct dsi_buf *tp = mot_panel->mot_tx_buf;
-
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
-	mipi_dsi_mdp_busy_wait(mfd);
 
 	mipi_dsi_buf_init(tp);
 	mipi_dsi_cmds_tx(mfd, tp, &mot_display_on_cmd, 1);
@@ -67,9 +82,6 @@ int mipi_mot_panel_on(struct msm_fb_data_type *mfd)
 int mipi_mot_panel_off(struct msm_fb_data_type *mfd)
 {
 	struct dsi_buf *tp = mot_panel->mot_tx_buf;
-
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
-	mipi_dsi_mdp_busy_wait(mfd);
 
 	mipi_dsi_buf_init(tp);
 	mipi_dsi_cmds_tx(mfd, tp, &mot_display_off_cmd, 1);
@@ -126,7 +138,7 @@ u16 mipi_mot_get_manufacture_id(struct msm_fb_data_type *mfd)
 	if (manufacture_id == INVALID_VALUE) {
 		if (mot_panel == NULL) {
 			pr_err("%s: invalid mot_panel\n", __func__);
-			return -1;
+			return -ENODEV;
 		}
 
 		cmd = &mot_manufacture_id_cmd;
@@ -145,7 +157,7 @@ u16 mipi_mot_get_controller_ver(struct msm_fb_data_type *mfd)
 	if (controller_ver == INVALID_VALUE) {
 		if (mot_panel == NULL) {
 			pr_err("%s: invalid mot_panel\n", __func__);
-			return -1;
+			return -ENODEV;
 		}
 
 		cmd = &mot_controller_ver_cmd;
@@ -164,7 +176,7 @@ u16 mipi_mot_get_controller_drv_ver(struct msm_fb_data_type *mfd)
 	if (controller_drv_ver == INVALID_VALUE) {
 		if (mot_panel == NULL) {
 			pr_err("%s: invalid mot_panel\n", __func__);
-			return -1;
+			return -ENODEV;
 		}
 
 		cmd = &mot_controller_drv_ver_cmd;
@@ -173,6 +185,81 @@ u16 mipi_mot_get_controller_drv_ver(struct msm_fb_data_type *mfd)
 
 	return controller_drv_ver;
 }
+
+int mipi_mot_get_raw_mtp(struct msm_fb_data_type *mfd)
+{
+	struct dsi_cmd_desc *cmd;
+	struct dsi_buf *rp, *tp;
+	int ret, i;
+
+	if (mot_panel == NULL) {
+		pr_err("%s: invalid mot_panel\n", __func__);
+		return -ENODEV;
+	}
+
+	tp = mot_panel->mot_tx_buf;
+	rp = mot_panel->mot_rx_buf;
+	mipi_dsi_buf_init(rp);
+	mipi_dsi_buf_init(tp);
+	cmd = &mot_get_raw_mtp_cmd;
+
+	/*
+	 * display driver doesn't support read 24 bytes. It needs to be read
+	 * in three times. 0xb0 is offset cmd.
+	*/
+	for (i = 0; i < 3; i++) {
+		mipi_dsi_cmds_tx(mfd, tp, &set_offset_cmd[i], 1);
+		ret = mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 8);
+		if (ret)
+			memcpy(panel_raw_mtp + i * 8, (char *)rp->data, 8);
+		else {
+			memset(panel_raw_mtp, 0, sizeof(panel_raw_mtp));
+			pr_err("%s: failed to read D3h\n", __func__);
+			return -EIO;
+		}
+	}
+
+	return 0;
+}
+
+void mipi_mot_dynamic_gamma_calc(uint32_t v0_val, uint8_t preamble_1,
+			uint8_t preamble_2,
+			uint16_t in_gamma[NUM_VOLT_PTS][NUM_COLORS])
+{
+	smd_dynamic_gamma_calc(v0_val, preamble_1, preamble_2, panel_raw_mtp,
+			in_gamma, gamma_settings);
+}
+
+u8 *mipi_mot_get_gamma_setting(struct msm_fb_data_type *mfd, int level)
+{
+	if (level < 0)
+		level = 0;
+	else if (level > NUM_NIT_LVLS - 1)
+		level = NUM_NIT_LVLS - 1;
+
+	return gamma_settings[level];
+}
+
+#ifdef CONFIG_PROC_FS
+static int panel_gamma_proc_show(struct seq_file *m, void *v)
+{
+	smd_dynamic_gamma_dbg_dump(panel_raw_mtp, gamma_settings, m, v, 0);
+	smd_dynamic_gamma_dbg_dump(panel_raw_mtp, gamma_settings, m, v, 1);
+	return 0;
+}
+
+static int panel_gamma_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, panel_gamma_proc_show, NULL);
+}
+
+static const struct file_operations panel_gamma_proc_fops = {
+	.open           = panel_gamma_proc_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+#endif /* CONFIG_PROC_FS */
 
 static int esd_recovery_start(struct msm_fb_data_type *mfd)
 {
@@ -200,21 +287,6 @@ end:
 	return 0;
 }
 
-static void mipi_mot_mipi_busy_wait(struct msm_fb_data_type *mfd)
-{
-	/* Todo: consider to remove mdp4_dsi_cmd_dma_busy_wait
-	 * mipi_dsi_cmds_tx/rx wait for dma completion already.
-	 */
-	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
-		mipi_dsi_mdp_busy_wait(mfd);
-		mdp4_dsi_blt_dmap_busy_wait(mfd);
-	} else if (mfd->panel_info.type == MIPI_VIDEO_PANEL) {
-		mdp4_overlay_dsi_video_wait4event(mfd, INTR_PRIMARY_VSYNC);
-	}
-
-}
-
 static int mipi_read_cmd_locked(struct msm_fb_data_type *mfd,
 					struct dsi_cmd_desc *cmd, u8 *rd_data)
 {
@@ -226,7 +298,6 @@ static int mipi_read_cmd_locked(struct msm_fb_data_type *mfd,
 		goto panel_off_ret;
 	} else {
 		mipi_set_tx_power_mode(0);
-		mipi_mot_mipi_busy_wait(mfd);
 		*rd_data = (u8)get_panel_info(mfd, mot_panel, cmd);
 	}
 
@@ -344,3 +415,12 @@ void mipi_mot_esd_work(void)
 	queue_delayed_work(mot_panel->esd_wq, &mot_panel->esd_work,
 						MOT_PANEL_ESD_CHECK_PERIOD);
 }
+
+#ifdef CONFIG_PROC_FS
+static int __init proc_panel_gamma_init(void)
+{
+	proc_create("panel_gamma", 0, NULL, &panel_gamma_proc_fops);
+	return 0;
+}
+module_init(proc_panel_gamma_init);
+#endif /* CONFIG_PROC_FS */

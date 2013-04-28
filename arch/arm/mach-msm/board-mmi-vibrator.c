@@ -30,6 +30,8 @@
 #include <linux/platform_device.h>
 #include <linux/of_fdt.h>
 #include <linux/of.h>
+#include <linux/delay.h>
+#include <mach/system.h>
 
 #define MAX_VIBS		1
 #define MAX_PWMS		9
@@ -715,6 +717,36 @@ static struct platform_device vib_timed_dev = {
 		.platform_data = &vib_timed_pdata,
 	},
 };
+
+void mmi_vibrate(int value_ms)
+{
+	if (vib_timed_pdata.count) {
+		vibrator_power_on(value_ms, (void *)&vib_timeds[0]);
+		msleep(value_ms);
+		vibrator_power_off((void *)&vib_timeds[0]);
+		msleep(value_ms);
+	}
+}
+
+void mmi_buzz_blip(void)
+{
+	int number_of_blips = 10;
+
+	/* generate a pulse train to blip buzz 10 times or
+	   until the power key is released */
+	while (number_of_blips--) {
+		mmi_vibrate(100);
+	}
+}
+
+void mmi_sw_ap_reset(void)
+{
+	arch_reset(0, 0);
+
+	/* if reboot fails, wait for watchdog */
+	while (1)
+		;
+}
 
 void __init mmi_vibrator_init(void)
 {

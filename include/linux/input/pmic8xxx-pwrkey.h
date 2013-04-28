@@ -33,6 +33,8 @@ struct pm8xxx_pwrkey_platform_data  {
 	 */
 	u32  kpd_trigger_delay_us;
 	u32  wakeup;
+	void (*buzz)(void);
+	void (*reboot)(void);
 };
 
 #endif /* __PMIC8XXX_PWRKEY_H__ */

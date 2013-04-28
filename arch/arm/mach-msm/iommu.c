@@ -1000,6 +1000,10 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 	__disable_clocks(drvdata);
 fail:
 	spin_unlock(&msm_iommu_lock);
+#ifdef CONFIG_MSM_IOMMU_PANIC_ON_FAULT
+	pr_err("Unexpected IOMMU Fault: Crashing kernel for debug\n");
+	BUG();
+#endif
 	return 0;
 }
 

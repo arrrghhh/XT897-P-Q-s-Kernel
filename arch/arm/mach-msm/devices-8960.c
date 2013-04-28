@@ -85,6 +85,8 @@
 #define MSM_GSBI12_QUP_PHYS	(MSM_GSBI12_PHYS + 0x20000)
 #define MSM_QUP_SIZE		SZ_4K
 
+#define MSM_GSBI10_I2C_SDA	73
+#define MSM_GSBI10_I2C_SCL	74
 #define MSM_GSBI12_I2C_SDA	44
 #define MSM_GSBI12_I2C_SCL	45
 
@@ -1117,6 +1119,18 @@ static struct resource resources_qup_i2c_gsbi10[] = {
 		.start	= GSBI10_QUP_IRQ,
 		.end	= GSBI10_QUP_IRQ,
 		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "i2c_clk",
+		.start	= MSM_GSBI10_I2C_SCL,
+		.end	= MSM_GSBI10_I2C_SCL,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_sda",
+		.start	= MSM_GSBI10_I2C_SDA,
+		.end	= MSM_GSBI10_I2C_SDA,
+		.flags	= IORESOURCE_IO,
 	},
 };
 
@@ -2411,7 +2425,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.init_level = 0,
 	.num_levels = 5,
 	.set_grp_async = NULL,
-	.idle_timeout = HZ/12,
+	.idle_timeout = HZ/20,
 	.nap_allowed = true,
 	.clk_map = KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE,
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -2464,7 +2478,7 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 	.init_level = 0,
 	.num_levels = 3,
 	.set_grp_async = NULL,
-	.idle_timeout = HZ/5,
+	.idle_timeout = HZ/20,
 	.nap_allowed = true,
 	.clk_map = KGSL_CLK_CORE | KGSL_CLK_IFACE,
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -2517,7 +2531,7 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 	.init_level = 0,
 	.num_levels = 3,
 	.set_grp_async = NULL,
-	.idle_timeout = HZ/5,
+	.idle_timeout = HZ/20,
 	.nap_allowed = true,
 	.clk_map = KGSL_CLK_CORE | KGSL_CLK_IFACE,
 #ifdef CONFIG_MSM_BUS_SCALING

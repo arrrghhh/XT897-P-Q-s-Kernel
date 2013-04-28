@@ -240,6 +240,9 @@ module_param(max_restarts, int, 0644);
 static long max_history_time = 3600;
 module_param(max_history_time, long, 0644);
 
+static int modem_restart_count = 0;
+module_param(modem_restart_count, int, 0644);
+
 static void do_epoch_check(struct subsys_data *subsys)
 {
 	int n = 0;
@@ -464,6 +467,11 @@ int subsystem_restart(const char *subsys_name)
 		set_in_bp_panic();
 	}
 #endif
+
+	/* Increase restart count, later AP RIL can know the system
+	ever meet BP silent reboot, or NOT */
+	modem_restart_count++;
+
 	/* List of subsystems is protected by a lock. New subsystems can
 	 * still come in.
 	 */

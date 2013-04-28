@@ -86,6 +86,15 @@ static int vpe_reset(void)
 {
 	uint32_t vpe_version;
 	uint32_t rc = 0;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&vpe_ctrl->lock, flags);
+	if (vpe_ctrl->state == VPE_STATE_IDLE) {
+		pr_err("%s: VPE already disabled.", __func__);
+		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
+		return rc;
+	}
+	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 
 	vpe_reset_state_variables();
 	vpe_version = msm_io_r(vpe_ctrl->vpebase + VPE_HW_VERSION_OFFSET);
@@ -523,7 +532,7 @@ int vpe_disable(void)
 	CDBG("%s", __func__);
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	if (vpe_ctrl->state == VPE_STATE_IDLE) {
-		CDBG("%s: VPE already disabled", __func__);
+		pr_err("%s: VPE already disabled", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return rc;
 	}
@@ -575,6 +584,7 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 		(struct msm_mctl_pp_params *)arg;
 	struct msm_mctl_pp_cmd *cmd = vpe_params->cmd;
 	int rc = 0;
+	CDBG("_debug: commands being serviced by vpe = %d \n", cmd->id);
 	switch (cmd->id) {
 	case VPE_CMD_INIT:
 	case VPE_CMD_DEINIT:
@@ -673,11 +683,17 @@ vpe_unmap_mem_region:
 
 void msm_vpe_subdev_release(struct platform_device *pdev)
 {
+	unsigned long flags;
+
 	if (!atomic_read(&vpe_init_done)) {
 		/* no VPE object created */
 		pr_err("%s: no VPE object to release", __func__);
 		return;
 	}
+
+	spin_lock_irqsave(&vpe_ctrl->lock, flags);
+	vpe_ctrl->state = VPE_STATE_IDLE;
+	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 
 	iounmap(vpe_ctrl->vpebase);
 	atomic_set(&vpe_init_done, 0);

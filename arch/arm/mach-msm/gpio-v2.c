@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
+#include <linux/power/pm_debug.h>
 
 #include <asm/mach/irq.h>
 
@@ -540,6 +541,7 @@ void msm_gpio_show_resume_irq(void)
 		return;
 
 	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	wakeup_source_gpio_cleanup();
 	for_each_set_bit(i, msm_gpio.wake_irqs, NR_MSM_GPIOS) {
 		intstat = __raw_readl(GPIO_INTR_STATUS(i)) &
 					BIT(INTR_STATUS_BIT);
@@ -547,6 +549,7 @@ void msm_gpio_show_resume_irq(void)
 			irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
 			pr_warning("%s: %d triggered\n",
 				__func__, irq);
+			wakeup_source_gpio_add_irq(irq);
 		}
 	}
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);

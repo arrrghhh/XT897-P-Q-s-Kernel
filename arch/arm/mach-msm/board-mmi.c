@@ -375,6 +375,50 @@ static int get_hot_offset_dt(void)
 	return hot_temp_off;
 }
 
+static int get_hot_temp_pcb_dt(void)
+{
+	struct device_node *parent;
+	int len = 0;
+	const void *prop;
+	u8 hot_temp_pcb = 0;
+
+	parent = of_find_node_by_path("/System@0/PowerIC@0");
+	if (!parent) {
+		pr_info("Parent Not Found\n");
+		return 0;
+	}
+	prop = of_get_property(parent, "chg-hot-temp-pcb", &len);
+	if (prop && (len == sizeof(u8)))
+		hot_temp_pcb = *(u8 *)prop;
+
+	of_node_put(parent);
+	pr_info("DT Hot Temp PCB = %d\n", hot_temp_pcb);
+	return hot_temp_pcb;
+}
+
+static signed char get_hot_pcb_offset_dt(void)
+{
+	struct device_node *parent;
+	int len = 0;
+	const void *prop;
+	signed char hot_temp_pcb_off = 0;
+
+	parent = of_find_node_by_path("/System@0/PowerIC@0");
+	if (!parent) {
+		pr_info("Parent Not Found\n");
+		return 0;
+	}
+
+	prop = of_get_property(parent, "chg-hot-temp-pcb-offset", &len);
+	if (prop && (len == sizeof(u8)))
+		hot_temp_pcb_off = *(signed char *)prop;
+
+	of_node_put(parent);
+
+	pr_info("DT Hot Temp Offset PCB = %d\n", (int)hot_temp_pcb_off);
+	return hot_temp_pcb_off;
+}
+
 static struct emu_det_dt_data	emu_det_dt_data = {
 	.ic_type	= IC_EMU_POWER,
 	.uart_gsbi	= UART_GSBI12,
@@ -924,6 +968,23 @@ static int is_auo_hd_450(void)
 	return !strncmp(panel_name, "mipi_mot_cmd_auo_hd_450",
 							PANEL_NAME_MAX_LEN);
 }
+/* on vanquish, met mipi read issue after panel resume at very rare rate.
+ * The issue was caused the noise that VDDIO coupled into VCI during resume,
+ * the noise would get into IC logic block that caused mipi block to be
+ * unstable. Having VDDIO comes before VCI for 18ms avoided the high
+ * spike on VCI during resume
+ */
+static bool is_defered_vci_en(void)
+{
+	bool ret = false;
+
+	if (is_smd_hd_465())
+		ret = true;
+
+	return ret;
+}
+
+static struct regulator *reg_vci;
 
 /*
  * This voltage used to enable in mipi_dsi_panel_power() but since SOL
@@ -1148,6 +1209,27 @@ end:
 	return rc;
 }
 
+int panel_turn_on_vci(struct regulator *reg_vci)
+{
+	int rc = 0;
+
+	if (NULL != reg_vci) {
+		rc = regulator_set_optimum_mode(reg_vci, 100000);
+		if (rc < 0) {
+			pr_err("set_optimum_mode vci failed, rc=%d\n", rc);
+			rc = -EINVAL;
+		}
+
+		rc = regulator_enable(reg_vci);
+		if (rc) {
+			pr_err("enable vci failed, rc=%d\n", rc);
+			rc = -ENODEV;
+		}
+	}
+
+	return rc;
+}
+
 int mipi_panel_power_en(int on)
 {
 	int rc;
@@ -1261,6 +1343,14 @@ int mipi_panel_power_en(int on)
 		if (is_smd_hd_465() && system_rev >= HWREV_P1)
 			gpio_set_value_cansleep(0, 1);
 
+		if (is_defered_vci_en() == true) {
+			/* defer to turn on VCI after vddio on for 18ms*/
+			mdelay(18);
+			rc = panel_turn_on_vci(reg_vci);
+			if (rc)
+				goto end;
+		}
+
 		if (is_smd_hd_465())
 			mdelay(30);
 		else if (is_smd_qhd_429())
@@ -1279,6 +1369,8 @@ int mipi_panel_power_en(int on)
 
 		if (is_smd_hd_465() && lcd_reset1 != 0)
 			gpio_set_value_cansleep(lcd_reset1, 0);
+
+		mdelay(10);
 
 		if (is_auo_hd_450()) {
 			/* There is a HW issue of qinara P1, that if we release
@@ -1307,7 +1399,7 @@ end:
 static int mipi_panel_power(int on)
 {
 	static bool panel_power_on;
-	static struct regulator *reg_vddio, *reg_vci;
+	static struct regulator *reg_vddio;
 	int rc;
 
 	pr_debug("%s (%d) is called\n", __func__, on);
@@ -1392,21 +1484,10 @@ static int mipi_panel_power(int on)
 			}
 		}
 
-		if (NULL != reg_vci) {
-			rc = regulator_set_optimum_mode(reg_vci, 100000);
-			if (rc < 0) {
-				pr_err("set_optimum_mode vci failed, rc=%d\n",
-									rc);
-				rc = -EINVAL;
+		if (is_defered_vci_en() == false) { /* turn on VCI now */
+			rc = panel_turn_on_vci(reg_vci);
+			if (rc)
 				goto end;
-			}
-
-			rc = regulator_enable(reg_vci);
-			if (rc) {
-				pr_err("enable vci failed, rc=%d\n", rc);
-				rc = -ENODEV;
-				goto end;
-			}
 		}
 
 		mipi_panel_power_en(1);
@@ -1516,7 +1597,7 @@ static int hdmi_enable_5v(int on)
 
 	if (!reg_8921_hdmi_mvs)
 		reg_8921_hdmi_mvs = regulator_get(&hdmi_msm_device.dev,
-			"hdmi_mvs");
+					"hdmi_mvs");
 
 	if (on) {
 		rc = regulator_enable(reg_8921_hdmi_mvs);
@@ -1855,7 +1936,7 @@ static struct msm_camera_sensor_flash_data flash_ov7736 = {
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_ov7736 = {
-	.mount_angle  = 90,
+	.mount_angle  = 270,
 	.sensor_reset = 76,
 	.sensor_pwd   = 89,
 	.analog_en    = 82,
@@ -3330,10 +3411,22 @@ static __init void register_i2c_devices_from_dt(int bus)
 					msm_camera_sensor_ov8820_data.
 						sensor_platform_info->
 						digital_en = 0;
+				prop = of_get_property(child, "drv_strength",
+						&len);
+				if (prop && (len == sizeof(u8)))
+					update_camera_gpio_cfg(
+						msm_camera_sensor_ov8820_data,
+						*(uint8_t *)prop);
 				info.platform_data =
 					&msm_camera_sensor_ov8820_data;
 				break;
 			case 0x00290001: /* Omnivision_OV7736 */
+				prop = of_get_property(child, "drv_strength",
+						&len);
+				if (prop && (len == sizeof(u8)))
+					update_camera_gpio_cfg(
+						msm_camera_sensor_ov7736_data,
+						*(uint8_t *)prop);
 				info.platform_data =
 					&msm_camera_sensor_ov7736_data;
 				break;
@@ -3364,7 +3457,13 @@ static void __init register_i2c_devices(void)
 	register_i2c_devices_from_dt(MSM_8960_GSBI10_QUP_I2C_BUS_ID);
 }
 
+/* Common MMI 8960 efaults */
 static unsigned sdc_detect_gpio = 20;
+static struct msm_mmc_pad_drv sdc3_pad_drv_on_cfg[] = {
+	{TLMM_HDRV_SDC3_CLK, GPIO_CFG_8MA},
+	{TLMM_HDRV_SDC3_CMD, GPIO_CFG_8MA},
+	{TLMM_HDRV_SDC3_DATA, GPIO_CFG_8MA}
+};
 
 static __init void config_sdc_from_dt(void)
 {
@@ -3379,6 +3478,18 @@ static __init void config_sdc_from_dt(void)
 	prop = of_get_property(node, "pm8921,gpio", &len);
 	if (prop && (len == sizeof(u32)))
 		sdc_detect_gpio = *(u32 *)prop;
+
+	prop = of_get_property(node, "pad_drv_clk", &len);
+	if (prop && (len == sizeof(u32)))
+		sdc3_pad_drv_on_cfg[0].val = *(u32 *)prop;
+
+	prop = of_get_property(node, "pad_drv_cmd", &len);
+	if (prop && (len == sizeof(u32)))
+		sdc3_pad_drv_on_cfg[1].val = *(u32 *)prop;
+
+	prop = of_get_property(node, "pad_drv_dat", &len);
+	if (prop && (len == sizeof(u32)))
+		sdc3_pad_drv_on_cfg[2].val = *(u32 *)prop;
 
 	of_node_put(node);
 
@@ -3662,10 +3773,6 @@ static void (*reboot_ptr)(void) = &mot_factory_reboot_callback;
 static void (*reboot_ptr)(void);
 #endif
 
-static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
-	.max_clock_speed = 15060000,
-};
-
 #define EXPECTED_MBM_PROTOCOL_VERSION 1
 static uint32_t mbm_protocol_version;
 
@@ -3822,11 +3929,10 @@ static void __init msm8960_mmi_init(void)
 
 	pm8921_init(keypad_data, boot_mode_is_factory(), 0, 45,
 		    reboot_ptr, battery_data_is_meter_locked(),
-		    get_hot_temp_dt(),  get_hot_offset_dt());
+		    get_hot_temp_dt(),  get_hot_offset_dt(),
+		    get_hot_temp_pcb_dt(), get_hot_pcb_offset_dt());
 
 	/* Init the bus, but no devices at this time */
-	msm8960_spi_init(&msm8960_qup_spi_gsbi1_pdata, NULL, 0);
-
 	msm8960_init_watchdog();
 	msm8960_i2c_init(400000, uart_over_gsbi12);
 	msm8960_gfx_init();
@@ -3863,7 +3969,10 @@ static void __init msm8960_mmi_init(void)
 	msm8960_init_cam();
 #endif
 	config_sdc_from_dt();
+	/* Override some of the SDC3 interface configurations */
+	msm8960_preset_mmc_params(3, sdc3_pad_drv_on_cfg);
 	msm8960_init_mmc(sdc_detect_gpio);
+
 	acpuclk_init(&acpuclk_8960_soc_data);
 	register_i2c_devices();
 	msm_fb_add_devices();

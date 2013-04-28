@@ -132,6 +132,7 @@ obj-$(CONFIG_FB_MSM_MIPI_DSI_MOT) += mipi_mot_cmd_auo_hd_450.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_MOT) += mipi_mot_video_smd_hd_465.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_MOT) += mipi_mot_cmd_auo_qhd_430.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_MOT) += mipi_mot_cmd_smd_qhd_429.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_MOT) += smd_dynamic_gamma.o
 endif
 
 obj-$(CONFIG_FB_MSM_LCDC_PANEL) += lcdc_panel.o

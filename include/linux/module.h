@@ -356,6 +356,13 @@ struct module
 	} __percpu *refptr;
 #endif
 
+#ifdef CONFIG_MODULE_EXTRA_COPY
+	void *raw_binary_ptr;
+	unsigned long raw_binary_size;
+	void *linked_binary_ptr;
+	unsigned long linked_binary_size;
+#endif
+
 #ifdef CONFIG_CONSTRUCTORS
 	/* Constructor functions. */
 	ctor_fn_t *ctors;
@@ -449,7 +456,9 @@ static inline void __module_get(struct module *module)
 	if (module) {
 		preempt_disable();
 		__this_cpu_inc(module->refptr->incs);
+#ifdef CONFIG_TRACEPOINTS
 		trace_module_get(module, _THIS_IP_);
+#endif
 		preempt_enable();
 	}
 }
@@ -463,7 +472,9 @@ static inline int try_module_get(struct module *module)
 
 		if (likely(module_is_live(module))) {
 			__this_cpu_inc(module->refptr->incs);
+#ifdef CONFIG_TRACEPOINTS
 			trace_module_get(module, _THIS_IP_);
+#endif
 		} else
 			ret = 0;
 
@@ -516,9 +527,6 @@ int register_module_notifier(struct notifier_block * nb);
 int unregister_module_notifier(struct notifier_block * nb);
 
 extern void print_modules(void);
-
-extern void module_update_tracepoints(void);
-extern int module_get_iter_tracepoints(struct tracepoint_iter *iter);
 
 #else /* !CONFIG_MODULES... */
 
@@ -630,6 +638,14 @@ static inline int unregister_module_notifier(struct notifier_block * nb)
 static inline void print_modules(void)
 {
 }
+#endif /* CONFIG_MODULES */
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_TRACEPOINTS)
+
+extern void module_update_tracepoints(void);
+extern int module_get_iter_tracepoints(struct tracepoint_iter *iter);
+
+#else /* ! CONFIG_MODULES && CONFIG_TRACEPOINTS */
 
 static inline void module_update_tracepoints(void)
 {
@@ -639,7 +655,9 @@ static inline int module_get_iter_tracepoints(struct tracepoint_iter *iter)
 {
 	return 0;
 }
-#endif /* CONFIG_MODULES */
+
+#endif /* CONFIG_MODULES && CONFIG_TRACEPOINTS */
+
 
 #ifdef CONFIG_SYSFS
 extern struct kset *module_kset;

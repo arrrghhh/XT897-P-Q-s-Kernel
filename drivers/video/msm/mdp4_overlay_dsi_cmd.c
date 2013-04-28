@@ -38,14 +38,10 @@ static int busy_wait_cnt;
 static int dsi_state;
 static unsigned long  tout_expired;
 
-#define TOUT_PERIOD	HZ	/* 1 second */
-#define MS_100		(HZ/10)	/* 100 ms */
+#define MS_MDP_TOUT	(HZ/5)	/* 200 ms */
 
 static int vsync_start_y_adjust = 4;
-
 struct timer_list dsi_clock_timer;
-
-
 static bool dsi_panel_on;
 
 void mdp4_overlay_dsi_state_set(int state)
@@ -71,8 +67,18 @@ static void dsi_clock_tout(unsigned long data)
 	spin_lock(&dsi_clk_lock);
 	if (mipi_dsi_clk_on) {
 		if (dsi_state == ST_DSI_PLAYING) {
-			mipi_dsi_turn_off_clks();
-			mdp4_overlay_dsi_state_set(ST_DSI_CLK_OFF);
+			if (mipi_dsi_get_dsi_status() & 0x7) {
+				/*
+				 * DSI still is busy to transfer the pixel or
+				 * MIPI command, then push dsi_clock_timer()
+				 * MS_MDP_TOUT later
+				 */
+				tout_expired = jiffies + MS_MDP_TOUT;
+				mod_timer(&dsi_clock_timer, tout_expired);
+			} else {
+				mipi_dsi_turn_off_clks();
+				mdp4_overlay_dsi_state_set(ST_DSI_CLK_OFF);
+			}
 		}
 	}
 	spin_unlock(&dsi_clk_lock);
@@ -95,7 +101,8 @@ static __u32 msm_fb_line_length(__u32 fb_index, __u32 xres, int bpp)
 
 void mdp4_dsi_cmd_del_timer(void)
 {
-	del_timer_sync(&dsi_clock_timer);
+	if (dsi_clock_timer.function)
+		del_timer_sync(&dsi_clock_timer);
 }
 
 void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
@@ -130,6 +137,7 @@ void mdp4_mipi_vsync_enable(struct msm_fb_data_type *mfd,
 
 void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 {
+	static int first_time = 1;
 	MDPIBUF *iBuf = &mfd->ibuf;
 	uint8 *src;
 	int ptype;
@@ -161,11 +169,12 @@ void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 		if (ret < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
 
-		init_timer(&dsi_clock_timer);
+		if (first_time) {
+			init_timer(&dsi_clock_timer);
+			first_time = 0;
+		}
 		dsi_clock_timer.function = dsi_clock_tout;
 		dsi_clock_timer.data = (unsigned long) mfd;;
-		dsi_clock_timer.expires = 0xffffffff;
-		add_timer(&dsi_clock_timer);
 		tout_expired = jiffies;
 
 		dsi_pipe = pipe; /* keep it */
@@ -350,6 +359,8 @@ int mdp4_dsi_overlay_blt_stop(struct msm_fb_data_type *mfd)
 		spin_lock_irqsave(&mdp_spin_lock, flag);
 		dsi_pipe->blt_end = 1;	/* mark as end */
 		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+		mdp4_dsi_cmd_dma_busy_wait(mfd);
+		mdp4_dsi_blt_dmap_busy_wait(mfd);
 		return 0;
 	}
 
@@ -550,7 +561,10 @@ void mdp4_dsi_blt_dmap_busy_wait(struct msm_fb_data_type *mfd)
 
 	if (need_wait) {
 		/* wait until DMA finishes the current job */
-		wait_for_completion(&mfd->dma->dmap_comp);
+		if (!wait_for_completion_timeout(&mfd->dma->dmap_comp, HZ)) {
+			pr_err("failed to wait for dmap complete\n");
+			mdp4_hang_panic();
+		}
 	}
 }
 
@@ -564,15 +578,11 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
 	int need_wait = 0;
-
-
+	static int dma_wait_timeout_cnt;
 
 	if (dsi_clock_timer.function) {
-		if (time_after(jiffies, tout_expired)) {
-			tout_expired = jiffies + TOUT_PERIOD;
-			mod_timer(&dsi_clock_timer, tout_expired);
-			tout_expired -= MS_100;
-		}
+		tout_expired = jiffies + MS_MDP_TOUT;
+		mod_timer(&dsi_clock_timer, tout_expired);
 	}
 
 	pr_debug("%s: start pid=%d dsi_clk_on=%d\n",
@@ -600,6 +610,8 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 		if (wait_for_completion_timeout(&mfd->dma->comp,
 					msecs_to_jiffies(100)) == 0) {
 			pr_err("failed to wait for DMA complete\n");
+			mdp4_hang_panic();
+
 			spin_lock_irqsave(&mdp_spin_lock, flag);
 			if (busy_wait_cnt)
 				busy_wait_cnt--;
@@ -607,6 +619,19 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 			mfd->dma->busy = false;
 			mdp_disable_irq_nosync(MDP_OVERLAY0_TERM);
 			spin_unlock_irqrestore(&mdp_spin_lock, flag);
+			dma_wait_timeout_cnt++;
+		} else
+			dma_wait_timeout_cnt = 0;
+		/*
+		 * Since we have 10 consecutive MDP timeout which means MDP HW
+		 * is in the bad state then we need to trigger kernel panic
+		 * to get MDP HW out this state.
+		 */
+		if (dma_wait_timeout_cnt >= 10) {
+			pr_err("%s: MDP timeout  is reaches %d consecutive "
+					"times. Trigger kernel panic!\n",
+					__func__, dma_wait_timeout_cnt);
+			BUG();
 		}
 	}
 	pr_debug("%s: done pid=%d dsi_clk_on=%d\n",
@@ -676,12 +701,18 @@ void mdp4_dsi_cmd_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdp4_dsi_panel_on(mfd);
 }
 
-void mdp_dsi_cmd_overlay_suspend(void)
+void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd)
 {
 	/* dis-engage rgb0 from mixer0 */
 	if (dsi_pipe) {
-		mdp4_mixer_stage_down(dsi_pipe);
-		mdp4_iommu_unmap(dsi_pipe);
+		if (mfd->ref_cnt == 0) {
+			mdp4_overlay_unset_mixer(dsi_pipe->mixer_num);
+			mdp4_dsi_cmd_del_timer();
+			dsi_pipe = NULL;
+		} else {
+			mdp4_mixer_stage_down(dsi_pipe);
+			mdp4_iommu_unmap(dsi_pipe);
+		}
 	}
 }
 
@@ -704,6 +735,12 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 
 		mdp4_iommu_attach();
 		mdp4_dsi_cmd_kickoff_ui(mfd, dsi_pipe);
+
+		if (!mfd->use_ov0_blt) {
+			mdp4_overlay_update_blt_mode(mfd);
+			mdp4_free_writeback_buf(mfd, MDP4_MIXER0);
+		}
+
 		mdp4_iommu_unmap(dsi_pipe);
 	/* signal if pan function is waiting for the update completion */
 		if (mfd->pan_waiting) {

@@ -13,3 +13,4 @@ obj-$(CONFIG_S5K5B3G) += s5k5b3g_v4l2.o
 obj-$(CONFIG_S5K4E1) += s5k4e1_v4l2.o
 obj-$(CONFIG_MT9E013) += mt9e013_v4l2.o
 obj-$(CONFIG_WEBCAM_OV9726) += ov9726_v4l2.o
+obj-$(CONFIG_OV7692) += ov7692.o

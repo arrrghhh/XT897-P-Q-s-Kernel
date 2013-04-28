@@ -206,7 +206,8 @@ int32_t msm_actuator_init_table(
 			a_ctrl->region_params[region_index].
 			step_bound[MOVE_NEAR];
 		if (a_ctrl->set_info.total_steps < step_boundary) {
-			pr_err("%s: Region params / total steps mismatch\n", __func__);
+			pr_err("%s: Region params / total steps mismatch\n",
+				__func__);
 			kfree(a_ctrl->step_position_table);
 			a_ctrl->step_position_table = NULL;
 			return -EINVAL;
@@ -247,7 +248,6 @@ int32_t msm_actuator_set_default_focus(
 		if (rc < 0)
 			return rc;
 	}
-
 	if (a_ctrl->curr_step_pos != 0)
 		rc = a_ctrl->func_tbl.actuator_move_focus(a_ctrl, MOVE_FAR,
 			a_ctrl->curr_step_pos);
@@ -267,15 +267,13 @@ int32_t msm_actuator_af_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 		return rc;
 	}
 
-	if (a_ctrl->step_position_table) {
-		if (a_ctrl->step_position_table[a_ctrl->curr_step_pos] !=
-			a_ctrl->initial_code) {
-			rc = a_ctrl->func_tbl.actuator_set_default_focus(a_ctrl);
-			LINFO("%s after msm_actuator_set_default_focus\n", __func__);
-		}
-		kfree(a_ctrl->step_position_table);
-		a_ctrl->step_position_table = NULL;
+	if (a_ctrl->step_position_table[a_ctrl->curr_step_pos] !=
+		a_ctrl->initial_code) {
+		rc = a_ctrl->func_tbl.actuator_set_default_focus(a_ctrl);
+		LINFO("%s after msm_actuator_set_default_focus\n", __func__);
 	}
+	kfree(a_ctrl->step_position_table);
+	a_ctrl->step_position_table = NULL;
 	return rc;
 }
 

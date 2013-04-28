@@ -17,6 +17,7 @@
 #include "mipi_mot.h"
 #include "mdp4.h"
 #include <linux/atomic.h>
+#include <linux/reboot.h>
 
 static struct mipi_dsi_panel_platform_data *mipi_mot_pdata;
 
@@ -357,8 +358,12 @@ static int panel_on(struct platform_device *pdev)
 	atomic_set(&mot_panel.state, MOT_PANEL_ON);
 	if (!factory_run && mot_panel.esd_enabled &&
 				(mot_panel.esd_detection_run == false)) {
-		queue_delayed_work(mot_panel.esd_wq, &mot_panel.esd_work,
-						msecs_to_jiffies(20000));
+		if (mot_panel.is_valid_power_mode &&
+				!mot_panel.is_valid_power_mode(mfd))
+			queue_delayed_work(mot_panel.esd_wq, &mot_panel.esd_work, 0);
+		else
+			queue_delayed_work(mot_panel.esd_wq, &mot_panel.esd_work,
+							msecs_to_jiffies(20000));
 		mot_panel.esd_detection_run = true;
 	}
 	return 0;
@@ -378,6 +383,7 @@ static int panel_off(struct platform_device *pdev)
 		goto err;
 
 	if (mot_panel.panel_off) {
+		atomic_set(&mot_panel.state, MOT_PANEL_OFF);
 		mot_panel.panel_off(mfd);
 		pr_debug("MIPI MOT Panel OFF\n");
 	}
@@ -391,6 +397,27 @@ static void mot_panel_esd_work(struct work_struct *work)
 		mot_panel.esd_run();
 	else
 		pr_err("%s: no panel support for ESD\n", __func__);
+}
+
+static int mot_panel_off_reboot(struct notifier_block *nb,
+			 unsigned long val, void *v)
+{
+	struct mipi_mot_panel *mot_panel;
+	struct msm_fb_data_type *mfd;
+	mot_panel = container_of(nb, struct mipi_mot_panel, reboot_notifier);
+	mfd = mot_panel->mfd;
+
+	if (mfd->panel_power_on) {
+
+		mutex_lock(&mfd->dma->ov_mutex);
+
+		atomic_set(&mot_panel->state, MOT_PANEL_OFF);
+		if (mot_panel->panel_disable)
+			mot_panel->panel_disable(mfd);
+
+		mutex_unlock(&mfd->dma->ov_mutex);
+	}
+	return NOTIFY_DONE;
 }
 
 static int __devinit mipi_mot_lcd_probe(struct platform_device *pdev)
@@ -433,6 +460,10 @@ static int __devinit mipi_mot_lcd_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
+
+	mot_panel.reboot_notifier.notifier_call = mot_panel_off_reboot;
+	register_reboot_notifier(&mot_panel.reboot_notifier);
+
 	return 0;
 err:
 	return ret;
@@ -444,6 +475,8 @@ static int __devexit mipi_mot_lcd_remove(struct platform_device *pdev)
 		sysfs_remove_group(&mot_panel.mfd->fbi->dev->kobj,
 							&acl_attr_group);
 	}
+	if (mot_panel.reboot_notifier.notifier_call)
+		unregister_reboot_notifier(&mot_panel.reboot_notifier);
 	mutex_destroy(&mot_panel.lock);
 	return 0;
 }

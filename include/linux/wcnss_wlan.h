@@ -16,6 +16,7 @@
 
 #include <linux/device.h>
 
+
 enum wcnss_opcode {
 	WCNSS_WLAN_SWITCH_OFF = 0,
 	WCNSS_WLAN_SWITCH_ON,
@@ -43,7 +44,12 @@ int wcnss_wlan_power(struct device *dev,
 int req_riva_power_on_lock(char *driver_name);
 int free_riva_power_on_lock(char *driver_name);
 unsigned int wcnss_get_serial_number(void);
+void *wcnss_prealloc_get(unsigned int size);
+int wcnss_prealloc_put(void *ptr);
+
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
-
+/* Option 2 + */
+void wcnss_get_wlan_vos_memory(void **ptr, size_t *size);
+/* Option 2 - */
 #endif /* _WCNSS_WLAN_H_ */

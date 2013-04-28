@@ -356,5 +356,8 @@ int  __init msm8960_tmp105_init(struct i2c_board_info *info,
 	}
 	gpio_direction_input(gpio);
 
+	ret = gpio_export(gpio, 0);
+	if (ret)
+		pr_err("tmp105 gpio_export failed: %d\n", ret);
 	return 0;
 }

@@ -106,12 +106,12 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 	}
 
 	if (err && cmd->retries && !mmc_card_removed(host->card)) {
-		pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
-			mmc_hostname(host), cmd->opcode, err);
-
-		cmd->retries--;
-		cmd->error = 0;
-		host->ops->request(host, mrq);
+		/*
+		 * mmc_request_done() can be called from interrupt context
+		 * so move retry logic to mmc_wait_for_req()
+		 */
+		if (mrq->done)
+			mrq->done(mrq);
 	} else {
 		led_trigger_event(host->led, LED_OFF);
 
@@ -250,7 +250,27 @@ void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 
 	mmc_start_request(host, mrq);
 
-	wait_for_completion_io(&complete);
+	while (1) {
+		struct mmc_command *cmd;
+
+		cmd = mrq->cmd;
+
+		if (cmd->opcode != MMC_SEND_STATUS) {
+			wait_for_completion_io(&complete);
+		} else if(!wait_for_completion_timeout(&complete, HZ)) {
+			cmd->error = -ETIMEDOUT;
+			break;
+		}
+
+		if (!cmd->error || !cmd->retries)
+			break;
+
+		pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
+			mmc_hostname(host), cmd->opcode, cmd->error);
+		cmd->retries--;
+		cmd->error = 0;
+		host->ops->request(host, mrq);
+	}
 }
 
 EXPORT_SYMBOL(mmc_wait_for_req);
@@ -1181,7 +1201,7 @@ int mmc_resume_bus(struct mmc_host *host)
 		host->bus_ops->resume(host);
 	}
 
-	if (host->bus_ops->detect && !host->bus_dead)
+	if (host->bus_ops && host->bus_ops->detect && !host->bus_dead)
 		host->bus_ops->detect(host);
 
 	mmc_bus_put(host);
@@ -1217,8 +1237,7 @@ void mmc_attach_bus(struct mmc_host *host, const struct mmc_bus_ops *ops)
 }
 
 /*
- * Remove the current bus handler from a host. Assumes that there are
- * no interesting cards left, so the bus is powered down.
+ * Remove the current bus handler from a host.
  */
 void mmc_detach_bus(struct mmc_host *host)
 {
@@ -1234,8 +1253,6 @@ void mmc_detach_bus(struct mmc_host *host)
 	host->bus_dead = 1;
 
 	spin_unlock_irqrestore(&host->lock, flags);
-
-	mmc_power_off(host);
 
 	mmc_bus_put(host);
 }
@@ -1588,8 +1605,18 @@ int mmc_can_erase(struct mmc_card *card)
 }
 EXPORT_SYMBOL(mmc_can_erase);
 
+#define TOSHIBA_MANFID 0x11
 int mmc_can_trim(struct mmc_card *card)
 {
+	/*
+	 * Toshiba 24nm (eMMC v4.41) parts perform poorly when issued TRIM
+	 * commands because they do synchronous garbage collection.   Falling
+	 * back on normal erase commands works around this, since the part will
+	 * only do a logical remapping of the erased block.  This is resolved
+	 * on their 19nm (eMMC v4.5) parts.
+	 */
+	if (card->cid.manfid == TOSHIBA_MANFID && card->ext_csd.rev == 5)
+		return 0;
 	if (card->ext_csd.sec_feature_support & EXT_CSD_SEC_GB_CL_EN)
 		return 1;
 	return 0;
@@ -1752,6 +1779,9 @@ void mmc_rescan(struct work_struct *work)
 		goto out;
 	}
 
+	/* Initialization should be done at 3.3 V I/O voltage. */
+	mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330, 0);
+
 	/*
 	 * Only we can add a new handler, so it's safe to
 	 * release the lock here.
@@ -1808,6 +1838,7 @@ void mmc_stop_host(struct mmc_host *host)
 
 		mmc_claim_host(host);
 		mmc_detach_bus(host);
+		mmc_power_off(host);
 		mmc_release_host(host);
 		mmc_bus_put(host);
 		return;
@@ -1975,10 +2006,8 @@ EXPORT_SYMBOL(mmc_suspend_host);
  *	mmc_resume_host - resume a previously suspended host
  *	@host: mmc host
  */
-#define MMC_MAX_RESUME_ATTEMPTS 5
 int mmc_resume_host(struct mmc_host *host)
 {
-	int try = 0;
 	int err = 0;
 
 	mmc_bus_get(host);
@@ -2007,28 +2036,12 @@ int mmc_resume_host(struct mmc_host *host)
 		}
 		BUG_ON(!host->bus_ops->resume);
 		err = host->bus_ops->resume(host);
-
-		for (try = 1; err && try <= MMC_MAX_RESUME_ATTEMPTS; try++) {
-			printk(KERN_WARNING "%s: error %d during resume; "
-					    "trying to recover (attempt "
-					    "%d of %d)...\n",
-					    mmc_hostname(host), err, try,
-					    MMC_MAX_RESUME_ATTEMPTS);
-			mmc_power_off(host);
-			msleep(100 * try);	/* plenty of settling time */
-			mmc_power_up(host);
-			mmc_select_voltage(host, host->ocr);
-			msleep(100 * try);	/* take it slower each time */
-			err = host->bus_ops->resume(host);
-		}
 		if (err) {
 			printk(KERN_WARNING "%s: error %d during resume "
 					    "(card was removed?)\n",
 					    mmc_hostname(host), err);
 			err = 0;
-		} else if (try > 1)
-			printk(KERN_WARNING "%s: card recovery successful\n",
-					    mmc_hostname(host));
+		}
 	}
 	host->pm_flags &= ~MMC_PM_KEEP_POWER;
 	mmc_bus_put(host);
@@ -2072,6 +2085,7 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 			host->bus_ops->remove(host);
 
 		mmc_detach_bus(host);
+		mmc_power_off(host);
 		mmc_release_host(host);
 		host->pm_flags = 0;
 		break;

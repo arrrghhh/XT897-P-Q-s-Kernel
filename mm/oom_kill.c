@@ -17,6 +17,7 @@
  *  kernel subsystems and hints as to where to find out what things do.
  */
 
+#define REALLY_WANT_TRACEPOINTS
 #include <linux/oom.h>
 #include <linux/mm.h>
 #include <linux/err.h>
@@ -32,6 +33,9 @@
 #include <linux/mempolicy.h>
 #include <linux/security.h>
 #include <linux/ptrace.h>
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/memkill.h>
 
 int sysctl_panic_on_oom;
 int sysctl_oom_kill_allocating_task;
@@ -162,7 +166,7 @@ static bool oom_unkillable_task(struct task_struct *p,
 unsigned int oom_badness(struct task_struct *p, struct mem_cgroup *mem,
 		      const nodemask_t *nodemask, unsigned long totalpages)
 {
-	int points;
+	long points;
 
 	if (oom_unkillable_task(p, mem, nodemask))
 		return 0;
@@ -417,7 +421,8 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 }
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
-static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
+static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem,
+			 int order, unsigned int victim_points)
 {
 	struct task_struct *q;
 	struct mm_struct *mm;
@@ -433,6 +438,11 @@ static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
 		task_pid_nr(p), p->comm, K(p->mm->total_vm),
 		K(get_mm_counter(p->mm, MM_ANONPAGES)),
 		K(get_mm_counter(p->mm, MM_FILEPAGES)));
+	trace_oom_kill(
+		task_pid_nr(p), p->comm, K(p->mm->total_vm),
+		K(get_mm_counter(p->mm, MM_ANONPAGES)),
+		K(get_mm_counter(p->mm, MM_FILEPAGES)),
+		p->signal->oom_score_adj, order, victim_points);
 	task_unlock(p);
 
 	/*
@@ -449,6 +459,8 @@ static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
 		if (q->mm == mm && !same_thread_group(q, p)) {
 			task_lock(q);	/* Protect ->comm from prctl() */
 			pr_err("Kill process %d (%s) sharing same memory\n",
+				task_pid_nr(q), q->comm);
+			trace_oom_kill_shared(
 				task_pid_nr(q), q->comm);
 			task_unlock(q);
 			force_sig(SIGKILL, q);
@@ -512,7 +524,7 @@ static int oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 		}
 	} while_each_thread(p, t);
 
-	return oom_kill_task(victim, mem);
+	return oom_kill_task(victim, mem, order, points);
 }
 
 /*

@@ -1286,8 +1286,12 @@ config PROFILING
 # Place an empty function call at each tracepoint site. Can be
 # dynamically changed for a probe function.
 #
+config TRACEPOINTS_CORE
+	bool
+
 config TRACEPOINTS
 	bool
+	select TRACEPOINTS_CORE
 
 source "arch/Kconfig"
 
@@ -1379,6 +1383,16 @@ config MODULE_SRCVERSION_ALL
 	  others sometimes change the module source without updating
 	  the version).  With this option, such a "srcversion" field
 	  will be created for all modules.  If unsure, say N.
+
+config MODULE_EXTRA_COPY
+	bool "Keep an extra copy of a module while it is loading"
+	help
+	  Keep an extra copy of the module code while the module is loading.
+	  This extra copy contains the raw, unlinked code.  It is freed after
+	  the module's initialization function has finished loading.  This
+	  option is useful if you want to make a self-contained
+	  FIPS-140-compliant module which must check its own integrity.
+	  If unsure, say N.
 
 endif # MODULES
 

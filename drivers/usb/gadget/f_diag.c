@@ -694,7 +694,8 @@ static ssize_t debug_read_stats(struct file *file, char __user *ubuf,
 
 		ctxt = ch->priv_channel;
 
-		temp += scnprintf(buf + temp, PAGE_SIZE - temp,
+		if (ctxt)
+			temp += scnprintf(buf + temp, PAGE_SIZE - temp,
 				"---Name: %s---\n"
 				"endpoints: %s, %s\n"
 				"dpkts_tolaptop: %lu\n"
@@ -705,6 +706,10 @@ static ssize_t debug_read_stats(struct file *file, char __user *ubuf,
 				ctxt->dpkts_tolaptop,
 				ctxt->dpkts_tomodem,
 				ctxt->dpkts_tolaptop_pending);
+		else
+			temp += scnprintf(buf + temp, PAGE_SIZE - temp,
+				"---Name: %s---\n",
+				ch->name);
 	}
 
 	return simple_read_from_buffer(ubuf, count, ppos, buf, temp);
@@ -720,9 +725,11 @@ static ssize_t debug_reset_stats(struct file *file, const char __user *buf,
 
 		ctxt = ch->priv_channel;
 
-		ctxt->dpkts_tolaptop = 0;
-		ctxt->dpkts_tomodem = 0;
-		ctxt->dpkts_tolaptop_pending = 0;
+		if (ctxt) {
+			ctxt->dpkts_tolaptop = 0;
+			ctxt->dpkts_tomodem = 0;
+			ctxt->dpkts_tolaptop_pending = 0;
+		}
 	}
 
 	return count;

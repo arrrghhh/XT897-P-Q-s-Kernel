@@ -233,6 +233,10 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 {
 	struct task_struct *tsk = thread->task;
 	static int die_counter;
+#ifdef CONFIG_DEBUG_THREAD_INFO
+	unsigned long thread_addr;
+	unsigned long task_addr;
+#endif
 	int ret;
 
 	atomic_notifier_call_chain(&touch_watchdog_notifier_head, 0, NULL);
@@ -250,6 +254,15 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 		TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk), thread + 1);
 
 	if (!user_mode(regs) || in_interrupt()) {
+#ifdef CONFIG_DEBUG_THREAD_INFO
+		thread_addr = regs->ARM_sp & ~(THREAD_SIZE - 1);
+		dump_mem(KERN_EMERG, "thread_info:", thread_addr,
+			thread_addr + sizeof(struct thread_info));
+		if (__get_user(task_addr,
+			(unsigned long *)(thread_addr + 0xc)) == 0)
+			dump_mem(KERN_EMERG, "task_struct:", task_addr,
+				task_addr + sizeof(struct task_struct));
+#endif
 		dump_mem(KERN_EMERG, "Stack: ", regs->ARM_sp,
 			 THREAD_SIZE + (unsigned long)task_stack_page(tsk));
 		dump_backtrace(regs, tsk);

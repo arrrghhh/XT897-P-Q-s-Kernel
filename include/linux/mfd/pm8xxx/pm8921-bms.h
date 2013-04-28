@@ -211,6 +211,14 @@ void pm8921_bms_calibrate_hkadc(void);
  */
 int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
 							    int *vbat_uv);
+/**
+ * pm8921_bms_invalidate_shutdown_soc - function to notify the bms driver that
+ *					the battery was replaced between reboot
+ *					and so it should not use the shutdown
+ *					soc stored in a coincell backed register
+ */
+void pm8921_bms_invalidate_shutdown_soc(void);
+
 #ifdef CONFIG_PM8921_FLOAT_CHARGE
 /**
  * pm8921_bms_charging_full - function to notify the bms driver that charging
@@ -277,6 +285,9 @@ static inline int pm8921_bms_get_simultaneous_battery_voltage_and_current(
 						int *ibat_ua, int *vbat_uv)
 {
 	return -ENXIO;
+}
+static inline void pm8921_bms_invalidate_shutdown_soc(void)
+{
 }
 static inline void pm8921_bms_no_external_accy(void)
 {

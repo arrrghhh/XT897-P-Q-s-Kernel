@@ -41,11 +41,32 @@ struct msm_xo_voter *xo2;
 #define MAX_SSR_REASON_LEN 81U
 #define Q6_FW_WDOG_ENABLE		0x08882024
 #define Q6_SW_WDOG_ENABLE		0x08982024
+#define SMSM_SUBSYS2AP_STATUS		0x00008000
+
+static int no_wdog_chk;
+module_param(no_wdog_chk, int, S_IRUGO | S_IWUSR);
+
 
 static void modem_wdog_check(struct work_struct *work)
 {
 	void __iomem *q6_sw_wdog_addr;
 	u32 regval;
+	uint32_t modem_state;
+
+	if (no_wdog_chk & 0xFF) {
+
+		modem_state = smsm_get_state(SMSM_MODEM_STATE);
+		if (modem_state & SMSM_SUBSYS2AP_STATUS) {
+			pr_err("modem-8960: Modem ready (%X).\n",
+					modem_state & SMSM_SUBSYS2AP_STATUS);
+		} else {
+			pr_err("modem-8960: Modem NOT ready (%X). Restart it now.\n",
+					modem_state & SMSM_SUBSYS2AP_STATUS);
+			subsystem_restart("modem");
+		}
+		return;
+
+	}
 
 	q6_sw_wdog_addr = ioremap_nocache(Q6_SW_WDOG_ENABLE, 4);
 	if (!q6_sw_wdog_addr)
@@ -180,7 +201,7 @@ void modem_crash_shutdown(const struct subsys_data *subsys)
 
 /* FIXME: Get address, size from PIL */
 static struct ramdump_segment modemsw_segments[] = {
-	{0x89000000, 0x8D400000 - 0x89000000},
+	{0x89000000, 0x8D100000 - 0x89000000},
 };
 
 static struct ramdump_segment modemfw_segments[] = {

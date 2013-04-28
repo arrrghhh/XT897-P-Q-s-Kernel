@@ -80,6 +80,15 @@ config EARLY_PRINTK
 	  kernel low-level debugging functions. Add earlyprintk to your
 	  kernel parameters to enable this console.
 
+config DEBUG_THREAD_INFO
+	bool "Enable memory dump for thread_info & task_struct"
+	depends on DEBUG_KERNEL
+	default n
+	help
+	  This option enables memory dump to thread_info and task_struct
+	  on Oops occurs for debugging purpose.
+	  If unsure say N.
+
 config DEBUG_ICEDCC
 	bool "Kernel low-level debugging via EmbeddedICE DCC channel"
 	depends on DEBUG_LL

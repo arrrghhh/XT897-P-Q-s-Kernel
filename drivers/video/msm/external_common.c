@@ -1510,6 +1510,9 @@ int hdmi_common_read_edid(void)
 			status,
 			edid_buf[0], edid_buf[1], edid_buf[2], edid_buf[3],
 			edid_buf[4], edid_buf[5], edid_buf[6], edid_buf[7]);
+			external_common_state->hdmi_sink = false;
+			DEV_DBG("HDMI DVI mode: %s\n",
+				external_common_state->hdmi_sink ? "no" : "yes");
 		goto error;
 	}
 	hdmi_edid_extract_vendor_id(edid_buf, vendor_id);
@@ -1531,6 +1534,12 @@ int hdmi_common_read_edid(void)
 		if (status) {
 			DEV_ERR("%s: ddc read block(1) failed: %d\n", __func__,
 				status);
+			ieee_reg_id =
+				hdmi_edid_extract_ieee_reg_id(edid_buf+0x80);
+			if (ieee_reg_id == 0x0c03)
+				external_common_state->hdmi_sink = TRUE ;
+			else
+				external_common_state->hdmi_sink = FALSE ;
 			goto error;
 		}
 		if (edid_buf[0x80] != 2)

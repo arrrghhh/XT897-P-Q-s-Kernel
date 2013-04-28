@@ -86,6 +86,7 @@ enum {
 	HCI_SERVICE_CACHE,
 	HCI_LINK_KEYS,
 	HCI_DEBUG_KEYS,
+	HCI_UNREGISTER,
 
 	HCI_RESET,
 };
@@ -1332,6 +1333,15 @@ struct hci_ev_le_advertising_info {
 	bdaddr_t bdaddr;
 	__u8	 length;
 	__u8	 data[0];
+} __packed;
+
+#define HCI_EV_LE_CONN_UPDATE_COMPLETE	0x03
+struct hci_ev_le_conn_update_complete {
+	__u8     status;
+	__le16   handle;
+	__le16   interval;
+	__le16   latency;
+	__le16   supervision_timeout;
 } __packed;
 
 #define HCI_EV_LE_LTK_REQ		0x05

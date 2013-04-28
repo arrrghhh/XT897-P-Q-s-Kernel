@@ -47,9 +47,14 @@
  * @step_charge_voltage:        Batteries with Peak Voltages above 4.2 V
  *                              sometimes require a reduced Charge Rate
  *                              above a voltage threshold; this is that voltage
- * @hot_temp:		the temperature (degC) at which the battery is
- *			considered hot charging is stopped
- * @hot_temp_offset	the offset (degC) to apply when hot temp is reached
+ * @hot_temp:           the battery temperature (degC) at which the battery is
+ *                      considered hot and charging is stopped
+ * @hot_temp_offset     the offset (degC) to apply when hot temp of the battery
+ *                      is reached
+ * @hot_temp_pcb:       the PCB temperature (degC) used to determine battery
+ *                      charging behavior
+ * @hot_temp_pcb_offset the offset (degC) to apply when the hot temp of the PCB
+ *                      is reached
  */
 struct pm8921_charger_battery_data {
 	unsigned int			max_voltage;
@@ -65,8 +70,11 @@ struct pm8921_charger_battery_data {
 	unsigned int			warm_bat_voltage;
 	unsigned int			step_charge_current;
 	unsigned int			step_charge_voltage;
-	int				hot_temp;
-	int				hot_temp_offset;
+	unsigned int			step_charge_vinmin;
+	int                             hot_temp;
+	int                             hot_temp_offset;
+	int                             hot_temp_pcb;
+	signed char                     hot_temp_pcb_offset;
 };
 #endif
 
@@ -190,6 +198,14 @@ enum pm8921_btm_state {
  *                              Upper batt alarm threshold
  * @lower_battery_threshold:    Warning threshold for lower battery alarm
  *                              threshold while discharging.
+ * @hot_temp:           the battery temperature (degC) at which the battery is
+ *                      considered hot and charging is stopped
+ * @hot_temp_offset     the offset (degC) to apply when hot temp of the battery
+ *                      is reached
+ * @hot_temp_pcb:       the PCB temperature (degC) used to determine battery
+ *                      charging behavior
+ * @hot_temp_pcb_offset the offset (degC) to apply when the hot temp of the PCB
+ *                      is reached
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
@@ -228,14 +244,17 @@ struct pm8921_charger_platform_data {
 				  struct pm8921_charger_battery_data *data);
 	unsigned int			step_charge_current;
 	unsigned int			step_charge_voltage;
+	unsigned int                    step_charge_vinmin;
 	int64_t (*temp_range_cb) (int batt_temp, int batt_mvolt,
 				  struct pm8921_charger_battery_data *data,
 				  int64_t *enable,
 				  enum pm8921_btm_state *state);
-	unsigned int			batt_alarm_delta;
-	unsigned int			lower_battery_threshold;
-	int			       	hot_temp;
-	int			       	hot_temp_offset;
+	unsigned int              batt_alarm_delta;
+	unsigned int              lower_battery_threshold;
+	int                       hot_temp;
+	int                       hot_temp_offset;
+	int                       hot_temp_pcb;
+	signed char               hot_temp_pcb_offset;
 	void (*force_therm_bias) (struct device *dev, int enable);
 #endif
 #ifdef CONFIG_PM8921_FACTORY_SHUTDOWN

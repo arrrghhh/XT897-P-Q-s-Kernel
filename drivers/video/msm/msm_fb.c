@@ -848,6 +848,8 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 				mfd->panel_power_on = curr_pwr_state;
 
 			mfd->op_enable = TRUE;
+			/* These flags are using for MDP hang debug purpose */
+			mdp4_clear_dump_flags();
 		} else {
 			if (pdata->power_ctrl)
 				pdata->power_ctrl(FALSE);
@@ -1690,7 +1692,9 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 
 	mdp_set_dma_pan_info(info, dirtyPtr,
 			     (var->activate == FB_ACTIVATE_VBL));
+	lock_panel_mutex(mfd);
 	mdp_dma_pan_update(info);
+	unlock_panel_mutex(mfd);
 	up(&msm_fb_pan_sem);
 
 	if (unset_bl_level != -1 && !bl_updated) {
@@ -2839,7 +2843,9 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 		}
 	}
 
+	lock_panel_mutex(mfd);
 	ret = mdp4_overlay_play(info, &req);
+	unlock_panel_mutex(mfd);
 
 	if (unset_bl_level != -1 && !bl_updated) {
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->

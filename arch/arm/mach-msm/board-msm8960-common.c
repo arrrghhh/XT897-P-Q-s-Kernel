@@ -580,6 +580,71 @@ struct msm_camera_gpio_conf msm_camif_gpio_conf_mclk1 = {
 	.cam_gpio_tbl = msm_cam_gpio_2d_tbl_mclk1,
 	.cam_gpio_tbl_size = ARRAY_SIZE(msm_cam_gpio_2d_tbl_mclk1),
 };
+
+void update_camera_gpio_cfg(struct msm_camera_sensor_info sensor_info,
+		uint8_t drv_strength)
+{
+	int i;
+	int num_configs = ARRAY_SIZE(msm8960_cam_common_configs);
+	bool found = false;
+
+	for (i = 0; i < num_configs; i++) {
+		if (msm8960_cam_common_configs[i].gpio ==
+				sensor_info.gpio_conf->cam_gpio_tbl[0]) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pr_err("%s: Unable to configure mclk gpio!\n", __func__);
+		return;
+	}
+
+	switch (drv_strength) {
+	case 0:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_2MA;
+		break;
+	case 1:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_4MA;
+		break;
+	case 2:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_6MA;
+		break;
+	case 3:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_8MA;
+		break;
+	case 4:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_10MA;
+		break;
+	case 5:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_12MA;
+		break;
+	case 6:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_14MA;
+		break;
+	case 7:
+		msm8960_cam_common_configs[i].settings[0]->drv =
+			GPIOMUX_DRV_16MA;
+		break;
+	default:
+			pr_err("%s: Unable to find correct drive strength!\n",
+					__func__);
+	}
+
+	msm_gpiomux_install(msm8960_cam_common_configs,
+			ARRAY_SIZE(msm8960_cam_common_configs));
+	return;
+}
+
+
 #endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
@@ -2689,9 +2754,9 @@ static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
 
 /* SDC1 pad data */
 static struct msm_mmc_pad_drv sdc1_pad_drv_on_cfg[] = {
-	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_16MA},
-	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_10MA},
-	{TLMM_HDRV_SDC1_DATA, GPIO_CFG_10MA}
+	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_6MA},
+	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_6MA},
+	{TLMM_HDRV_SDC1_DATA, GPIO_CFG_6MA}
 };
 
 static struct msm_mmc_pad_drv sdc1_pad_drv_off_cfg[] = {
@@ -2714,9 +2779,9 @@ static struct msm_mmc_pad_pull sdc1_pad_pull_off_cfg[] = {
 
 /* SDC3 pad data */
 static struct msm_mmc_pad_drv sdc3_pad_drv_on_cfg[] = {
-	{TLMM_HDRV_SDC3_CLK, GPIO_CFG_6MA},
-	{TLMM_HDRV_SDC3_CMD, GPIO_CFG_6MA},
-	{TLMM_HDRV_SDC3_DATA, GPIO_CFG_6MA}
+	{TLMM_HDRV_SDC3_CLK, GPIO_CFG_8MA},
+	{TLMM_HDRV_SDC3_CMD, GPIO_CFG_8MA},
+	{TLMM_HDRV_SDC3_DATA, GPIO_CFG_8MA}
 };
 
 static struct msm_mmc_pad_drv sdc3_pad_drv_off_cfg[] = {
@@ -2794,7 +2859,7 @@ struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 };
 
 static unsigned int sdc1_sup_clk_rates[] = {
-	400000, 24000000, 48000000
+	400000, 24000000, 48000000, 96000000
 };
 
 static unsigned int sdc3_sup_clk_rates[] = {
@@ -2814,7 +2879,10 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 	.pclk_src_dfab	= 1,
 	.nonremovable	= 1,
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
-	.pin_data	= &mmc_slot_pin_data[SDCC1]
+	.pin_data	= &mmc_slot_pin_data[SDCC1],
+	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
+			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
+			MMC_CAP_1_8V_DDR)
 };
 #endif
 
@@ -2841,6 +2909,24 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 			MMC_CAP_MAX_CURRENT_600)
 };
 #endif
+
+/* Call before msm8960_init_mmc() */
+void __init msm8960_preset_mmc_params(int host,
+		const struct msm_mmc_pad_drv *sdc_pad_drv_on)
+{
+	switch (host) {
+#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
+	/* SDC3: External card slot */
+	case 3:
+		if (sdc_pad_drv_on)
+			memcpy(sdc3_pad_drv_on_cfg, sdc_pad_drv_on,
+					sizeof(sdc3_pad_drv_on_cfg));
+		break;
+#endif
+	default:
+		break;
+	}
+}
 
 void __init msm8960_init_mmc(unsigned sd_detect)
 {
@@ -3039,6 +3125,13 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
 		true,
 		100, 650, 801, 200,
+	},
+
+	{
+		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
+		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
+		true,
+		2000, 200, 576000, 2000,
 	},
 
 	{

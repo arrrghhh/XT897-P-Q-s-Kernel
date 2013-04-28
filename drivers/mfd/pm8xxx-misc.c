@@ -136,6 +136,26 @@
 #define PM8901_DELAY_AFTER_REG_DISABLE_MS	4
 #define PM8901_DELAY_BEFORE_SHUTDOWN_MS		8
 
+#define DEBUG_PM8XXX_MISC_CHIPS_LOCK
+#ifdef DEBUG_PM8XXX_MISC_CHIPS_LOCK
+#define __TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK() \
+	do { \
+		pr_crit("Add pm8xxx_misc_chips_lock, %s:line=%d\n", \
+			 __func__, __LINE__); \
+		dump_stack(); \
+	} while (0)
+#define __TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK() \
+	do { \
+		pr_crit("Release pm8xxx_misc_chips_lock, %s:line=%d\n", \
+			__func__, __LINE__); \
+	} while (0)
+#else
+#define __TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK() \
+	do { ; } while (0)
+#define __TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK() \
+	do { ; } while (0)
+#endif
+
 struct pm8xxx_misc_chip {
 	struct list_head			link;
 	struct pm8xxx_misc_platform_data	pdata;
@@ -479,6 +499,7 @@ int pm8xxx_reset_pwr_off(int reset)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -507,6 +528,7 @@ int pm8xxx_reset_pwr_off(int reset)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -529,6 +551,7 @@ int pm8xxx_smpl_control(int enable)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -563,6 +586,7 @@ int pm8xxx_smpl_control(int enable)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -591,6 +615,7 @@ int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay)
 		return -EINVAL;
 	}
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -622,6 +647,7 @@ int pm8xxx_smpl_set_delay(enum pm8xxx_smpl_delay delay)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -672,6 +698,7 @@ int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
 		reg |= (resistor << COINCELL_RESISTOR_SHIFT);
 	}
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -700,6 +727,7 @@ int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -722,6 +750,7 @@ int pm8xxx_watchdog_reset_control(int enable)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -746,6 +775,7 @@ int pm8xxx_watchdog_reset_control(int enable)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -768,6 +798,7 @@ int pm8xxx_stay_on(void)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -790,6 +821,7 @@ int pm8xxx_stay_on(void)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -849,6 +881,7 @@ int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -881,6 +914,7 @@ int pm8xxx_hard_reset_config(enum pm8xxx_pon_config config)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -916,6 +950,7 @@ int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -939,6 +974,7 @@ int pm8xxx_uart_gpio_mux_ctrl(enum pm8xxx_uart_path_sel uart_path_sel)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -977,6 +1013,7 @@ int pm8xxx_preload_dVdd(void)
 	unsigned long flags;
 	int rc = 0;
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 
 	/* Loop over all attached PMICs and call specific functions for them. */
@@ -996,6 +1033,7 @@ int pm8xxx_preload_dVdd(void)
 	}
 
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	return rc;
 }
@@ -1039,6 +1077,7 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	}
 
 	/* Insert PMICs in priority order (lowest value first). */
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 	prev = &pm8xxx_misc_chips;
 	list_for_each_entry(sibling, &pm8xxx_misc_chips, link) {
@@ -1049,6 +1088,7 @@ static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 	}
 	list_add(&chip->link, prev);
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	platform_set_drvdata(pdev, chip);
 
@@ -1068,9 +1108,11 @@ static int __devexit pm8xxx_misc_remove(struct platform_device *pdev)
 	if (irq > 0)
 		free_irq(irq, chip);
 
+	__TRACE_ADD_PM8XXX_MISC_CHIPS_LOCK();
 	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
 	list_del(&chip->link);
 	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+	__TRACE_RELEASE_PM8XXX_MISC_CHIPS_LOCK();
 
 	platform_set_drvdata(pdev, NULL);
 	kfree(chip);

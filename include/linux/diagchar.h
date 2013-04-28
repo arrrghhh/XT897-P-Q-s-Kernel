@@ -67,11 +67,11 @@ struct legacy_diag_ch {
 #define DIAG_IOCTL_SWITCH_LOGGING	7
 #define DIAG_IOCTL_GET_DELAYED_RSP_ID 	8
 #define DIAG_IOCTL_LSM_DEINIT		9
-//Slate code starts IKASANTISPRINT-207
-#define DIAG_IOCTL_GET_STATE_AND_CONN_INFO  15
-#define DIAG_IOCTL_GET_KEY_EVENT_MASK  16
-#define DIAG_IOCTL_GET_PEN_EVENT_MASK  17
-//Slate code ends
+
+/* 15 ~ 17 are allocated for slate feature */
+#define DIAG_IOCTL_RESERVED_FOR_ADDON_0  15
+#define DIAG_IOCTL_RESERVED_FOR_ADDON_1  16
+#define DIAG_IOCTL_RESERVED_FOR_ADDON_2  17
 
 /* Machine ID and corresponding PC Tools IDs */
 #define APQ8060_MACHINE_ID	86
@@ -147,8 +147,8 @@ the appropriate macros. */
 
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
-#define MSG_MASK_TBL_CNT		23
-#define EVENT_LAST_ID			0x083F
+#define MSG_MASK_TBL_CNT		24
+#define EVENT_LAST_ID			0x08AD
 
 #define MSG_SSID_0			0
 #define MSG_SSID_0_LAST			90
@@ -196,6 +196,8 @@ the appropriate macros. */
 #define MSG_SSID_21_LAST		10300
 #define MSG_SSID_22			10350
 #define MSG_SSID_22_LAST		10361
+#define MSG_SSID_23			0xC000
+#define MSG_SSID_23_LAST		0xC063
 
 struct diagpkt_delay_params {
 	void *rsp_ptr;

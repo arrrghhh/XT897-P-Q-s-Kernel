@@ -802,13 +802,6 @@ void __mdp_histogram_kickoff(struct mdp_hist_mgmt *mgmt);
 void __mdp_histogram_reset(struct mdp_hist_mgmt *mgmt);
 void mdp_footswitch_ctrl(boolean on);
 
-static inline void mdp_hang_panic(void) {
-	print_hex_dump(KERN_ERR, "MDP_HANG:", DUMP_PREFIX_OFFSET, 32, 4,
-		       (void *)MDP_BASE + 0xE0000, 0x100, false);
-	pr_err("MDP dump finished.\n");
-	BUG();
-}
-
 #ifdef CONFIG_FB_MSM_MDP303
 static inline void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 {

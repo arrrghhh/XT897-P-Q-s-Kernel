@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ /* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -239,6 +239,9 @@ enum {
 #define MDP4_OP_SCALEY_EN	BIT(1)
 #define MDP4_OP_SCALEX_EN	BIT(0)
 
+#define MDP4_REV40_UP_SCALING_MAX (8)
+#define MDP4_REV41_OR_LATER_UP_SCALING_MAX (20)
+
 #define MDP4_PIPE_PER_MIXER	2
 
 #define MDP4_MAX_PLANE		4
@@ -401,6 +404,7 @@ void mdp4_dma_s_update(struct msm_fb_data_type *mfd);
 void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		   boolean isr);
 void mdp4_pipe_kickoff(uint32 pipe, struct msm_fb_data_type *mfd);
+void mdp4_dump(struct mdp4_statistic stat);
 int mdp4_lcdc_on(struct platform_device *pdev);
 int mdp4_lcdc_off(struct platform_device *pdev);
 void mdp4_lcdc_update(struct msm_fb_data_type *mfd);
@@ -502,6 +506,7 @@ void mdp4_overlay_dsi_state_set(int state);
 int mdp4_overlay_dsi_state_get(void);
 void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_reg_flush(struct mdp4_overlay_pipe *pipe, int all);
+void mdp4_overlay_update_blt_mode(struct msm_fb_data_type *mfd);
 void mdp4_mixer_blend_setup(struct mdp4_overlay_pipe *pipe);
 struct mdp4_overlay_pipe *mdp4_overlay_stage_pipe(int mixer, int stage);
 void mdp4_mixer_stage_up(struct mdp4_overlay_pipe *pipe);
@@ -514,6 +519,7 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_get(struct fb_info *info, struct mdp_overlay *req);
 int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req);
 int mdp4_overlay_unset(struct fb_info *info, int ndx);
+int mdp4_overlay_unset_mixer(int mixer);
 int mdp4_overlay_play_wait(struct fb_info *info,
 	struct msmfb_overlay_data *req);
 int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req);
@@ -663,7 +669,7 @@ void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
 void mdp4_overlay_dsi_video_wait4event(struct msm_fb_data_type *mfd,
 					int intr_done);
 void mdp4_dsi_cmd_overlay_restore(void);
-void mdp_dsi_cmd_overlay_suspend(void);
+void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd);
 void mdp4_dsi_cmd_del_timer(void);
 #else
 static inline void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
@@ -699,7 +705,7 @@ static inline void mdp4_dsi_cmd_del_timer(void)
 }
 
 #ifdef CONFIG_FB_MSM_MDP40
-static inline void mdp_dsi_cmd_overlay_suspend(void)
+static inline void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd)
 {
 	/* empty */
 }
@@ -773,4 +779,20 @@ void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num);
 int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg);
 void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe);
 void mdp4_iommu_attach(void);
+
+#define COMMIT_HIST_TBL_SIZE 20
+
+/*having a struct in case further info needs to be added*/
+struct mdp4_commit_hist_tbl {
+	uint32 commit_cnt;
+	int32_t stage_commit;
+};
+
+void mdp4_stats_dump(struct mdp4_statistic stat);
+void mdp4_store_commit_info(void);
+void mdp4_dump_commit_info(void);
+void mdp4_regs_dump(void);
+void mdp4_hang_panic(void);
+void mdp4_clear_dump_flags(void);
+
 #endif /* MDP_H */

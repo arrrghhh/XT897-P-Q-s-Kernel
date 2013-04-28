@@ -153,12 +153,6 @@
 
 
 /*-------------------------------------------------------------------------*/
-#ifdef CONFIG_USB_MOT_ANDROID
-static int cdrom_enable ;
-
-module_param_named(cdrom, cdrom_enable, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(cdrom, "true to emulate cdrom instead of disk");
-#endif
 
 /* Bulk-only data structures */
 
@@ -194,9 +188,7 @@ struct bulk_cs_wrap {
 /* Bulk-only class specific requests */
 #define USB_BULK_RESET_REQUEST		0xff
 #define USB_BULK_GET_MAX_LUN_REQUEST	0xfe
-#ifdef CONFIG_USB_MOT_ANDROID
-#define USB_BULK_GET_ENCAP_RESPONSE     0x02
-#endif
+
 
 /* CBI Interrupt data structure */
 struct interrupt_data {
@@ -824,6 +816,16 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
 	int		rc = 0;
 
+
+#ifndef CONFIG_USB_ANDROID_MASS_STORAGE
+	/* disabled in android because we need to allow closing the backing file
+	 * if the media was removed
+	 */
+	if (curlun->prevent_medium_removal && fsg_lun_is_open(curlun)) {
+		LDBG(curlun, "eject attempt prevented\n");
+		return -EBUSY;				/* "Door is locked" */
+	}
+#endif
 
 	/* Remove a trailing newline */
 	if (count > 0 && buf[count-1] == '\n')

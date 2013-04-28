@@ -16,23 +16,6 @@
 #define NO_PROCESS	0
 #define NON_APPS_PROC	-1
 
-//Slate code starts IKASANTISPRINT-207
-//#define SLATE_DEBUG
-#define DIAG_MASK_CMD_SAVE                           0
-#define DIAG_MASK_CMD_RESTORE                        1
-#define DIAG_MASK_CMD_ADD_GET_RSSI                   2
-#define DIAG_MASK_CMD_ADD_GET_STATE_AND_CONN_ATT     3
-#define DIAG_MASK_CMD_ADD_GET_SEARCHER_DUMP          4
-#define DIAG_LOG_CMD_TYPE_NONE                    0
-#define DIAG_LOG_CMD_TYPE_GET_RSSI                1
-#define DIAG_LOG_CMD_TYPE_GET_STATE_AND_CONN_ATT  2
-#define DIAG_LOG_CMD_TYPE_RESTORE_LOG_MASKS       3
-#define DIAG_LOG_CMD_TYPE_GET_1x_SEARCHER_DUMP    4
-#define DIAG_LOG_TYPE_RSSI                        0
-#define DIAG_LOG_TYPE_STATE                       1
-#define DIAG_LOG_TYPE_CONN_ATT                    2
-//Slate code end
-
 void diagfwd_init(void);
 void diagfwd_exit(void);
 void diag_process_hdlc(void *data, unsigned len);
@@ -62,12 +45,4 @@ int channel_diag_write(struct legacy_diag_ch *ch, struct diag_request *d_req);
 extern int diag_debug_buf_idx;
 extern unsigned char diag_debug_buf[1024];
 extern int diag_event_num_bytes;
-
-//Slate code starts IKASANTISPRINT-207
-void diag_process_get_rssi_log(void);
-void diag_process_get_stateAndConnInfo_log(void);
-int  diag_log_is_enabled(unsigned char log_type);
-void diag_cfg_event_mask(void);
-//Slate code end
-
 #endif

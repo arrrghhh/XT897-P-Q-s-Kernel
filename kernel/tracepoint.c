@@ -15,6 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+#define REALLY_WANT_TRACEPOINTS
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/types.h>
@@ -576,13 +577,17 @@ EXPORT_SYMBOL_GPL(tracepoint_iter_reset);
 int tracepoint_module_notify(struct notifier_block *self,
 			     unsigned long val, void *data)
 {
+#ifdef CONFIG_TRACEPOINTS
 	struct module *mod = data;
+#endif
 
 	switch (val) {
 	case MODULE_STATE_COMING:
 	case MODULE_STATE_GOING:
+#ifdef CONFIG_TRACEPOINTS
 		tracepoint_update_probe_range(mod->tracepoints_ptrs,
 			mod->tracepoints_ptrs + mod->num_tracepoints);
+#endif
 		break;
 	}
 	return 0;

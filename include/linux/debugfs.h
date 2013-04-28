@@ -28,7 +28,7 @@ struct debugfs_blob_wrapper {
 
 extern struct dentry *arch_debugfs_dir;
 
-#if defined(CONFIG_DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS) || (defined(CONFIG_DEBUG_FS_CORE) && defined(REALLY_WANT_DEBUGFS))
 
 /* declared over in file.c */
 extern const struct file_operations debugfs_file_operations;

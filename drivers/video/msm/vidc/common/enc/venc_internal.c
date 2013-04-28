@@ -1845,7 +1845,8 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 				 __func__);
 			goto import_ion_error;
 		}
-		if (res_trk_check_for_sec_session()) {
+		if (res_trk_check_for_sec_session() ||
+		   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 			rc = ion_phys(client_ctx->user_ion_client,
 				client_ctx->recon_buffer_ion_handle[i],
 				&phy_addr, &ion_len);
@@ -1868,9 +1869,10 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 					(unsigned long *)&iova,
 					(unsigned long *)&buffer_size,
 					UNCACHED, 0);
-			if (rc) {
-				ERR("%s():ION map iommu addr fail\n",
-					 __func__);
+			if (rc || !iova) {
+				ERR(
+				"%s():ION map iommu addr fail, rc = %d, iova = 0x%lx\n",
+					__func__, rc, iova);
 				goto map_ion_error;
 			}
 			control->physical_addr =  (u8 *) iova;
@@ -1946,7 +1948,8 @@ u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
 		if (client_ctx->recon_buffer_ion_handle[i]) {
 			ion_unmap_kernel(client_ctx->user_ion_client,
 				client_ctx->recon_buffer_ion_handle[i]);
-			if (!res_trk_check_for_sec_session()) {
+			if (!res_trk_check_for_sec_session() &&
+			   (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
 				ion_unmap_iommu(client_ctx->user_ion_client,
 				client_ctx->recon_buffer_ion_handle[i],
 				VIDEO_DOMAIN,

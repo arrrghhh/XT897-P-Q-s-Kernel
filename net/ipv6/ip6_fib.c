@@ -1435,6 +1435,7 @@ static int fib6_age(struct rt6_info *rt, void *arg)
 {
 	unsigned long now = jiffies;
 	struct hh_cache *hh;
+	struct neighbour *nn;
 
 	/*
 	 *	check addrconf expiration here.
@@ -1456,7 +1457,7 @@ static int fib6_age(struct rt6_info *rt, void *arg)
 			RT6_TRACE("aging clone %p\n", rt);
 			return -1;
 		} else if ((rt->rt6i_flags & RTF_GATEWAY) &&
-			   (!(rt->rt6i_nexthop->flags & NTF_ROUTER))) {
+			   (!(dst_get_neighbour_raw(&rt->dst)->flags & NTF_ROUTER))) {
 			RT6_TRACE("purging route %p via non-router but gateway\n",
 				  rt);
 			return -1;
@@ -1465,26 +1466,24 @@ static int fib6_age(struct rt6_info *rt, void *arg)
 	}
 
 	/* check for the dead neighbors */
-	if (rt->rt6i_nexthop && !(rt->rt6i_flags & RTF_NONEXTHOP) &&
-		rt->rt6i_nexthop->dead) {
-
+	nn = dst_get_neighbour(&rt->dst);
+	if (nn && !(rt->rt6i_flags & RTF_NONEXTHOP) && nn->dead) {
 		hh = rt->dst.hh;
 		if (hh)
 			hh_cache_put(hh);
 
 		rt->dst.hh = NULL;
-		neigh_release(rt->rt6i_nexthop);
+		neigh_release(nn);
 
-		rt->rt6i_nexthop = __neigh_lookup_errno(&nd_tbl,
+		dst_set_neighbour(&rt->dst, __neigh_lookup_errno(&nd_tbl,
 							&rt->rt6i_gateway,
-							rt->rt6i_dev);
-		if (IS_ERR(rt->rt6i_nexthop)) {
+							rt->rt6i_dev));
+		if (IS_ERR(dst_get_neighbour(&rt->dst))) {
 			/* unexpected error. */
 			RT6_TRACE("Fail to flush dead neighbor.\n");
-			rt->rt6i_nexthop = NULL;
+			dst_set_neighbour(&rt->dst, NULL);
 		}
 	}
-
 	return 0;
 }
 

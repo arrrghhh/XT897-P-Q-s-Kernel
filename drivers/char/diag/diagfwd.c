@@ -42,17 +42,6 @@
 #define ALL_SSID		-1
 #define MAX_SSID_PER_RANGE	100
 
-//Slate code starts IKASANTISPRINT-207
-#include <linux/timer.h>
-#include <linux/param.h>
-#include <linux/wakelock.h>
-
-// wake lock for slate
-struct wake_lock slate_diag_wake_lock;
-
-#define SLATE_PROGRAM_NAME    "SLATE_DIAG"
-//IKASANTISPRINT-207 ends
-
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
@@ -100,14 +89,6 @@ do {									\
 
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 ((bufStart <= start) && (end - start >= length)) ? 1 : 0
-
-//Slate code starts IKASANTISPRINT-207
-static int  diag_process_modem_pkt(unsigned char *buf, int len);
-static void diag_process_user_pkt(unsigned char *data, unsigned len);
-extern bool slate_flag;
-struct timer_list log_mask_timer;
-static int timer_flag = 0;
-//IKASANTISPRINT-207 ends
 
 int chk_config_get_id(void)
 {
@@ -218,18 +199,6 @@ void __diag_smd_send_req(void)
 	}
 }
 
-//Slate code starts IKASANTISPRINT-207
-void __clear_in_busy(struct diag_request *write_ptr)
-{
-	if (write_ptr->buf == (void *)driver->buf_in_1) {
-		driver->in_busy_1 = 0;
-	} else if (write_ptr->buf == (void *)driver->buf_in_2) {
-		driver->in_busy_2 = 0;
-	}
-}
-//IKASANTISPRINT-207 ends
-
-
 int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 {
 	int i, err = 0;
@@ -307,24 +276,12 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 				" CHANNEL: ", 16, 1, DUMP_PREFIX_ADDRESS,
 					    buf, write_ptr->length, 1);
 #endif /* DIAG DEBUG */
-                        //Slate code starts IKASANTISPRINT-207
-                        if (slate_flag)
-                        {
-			    if (diag_process_modem_pkt(buf, write_ptr->length))
-			    {
-			        err = channel_diag_write(driver->legacy_ch, write_ptr);
-			    }
-			    else
-			    {
-				err = 0;
-		                __clear_in_busy(write_ptr);
-			    }
-                        }
-                        //IKASANTISPRINT-207 ends
-                        else
-                        {
-			    err = channel_diag_write(driver->legacy_ch, write_ptr);
-                        }
+
+			if (DIAGADDON_EXIST() == false)
+				err = channel_diag_write
+					(driver->legacy_ch, write_ptr);
+			else
+				DIAGADDON_channel_diag_write(&err, write_ptr);
 		} else if (proc_num == QDSP_DATA) {
 			write_ptr->buf = buf;
 			err = channel_diag_write(driver->legacy_ch, write_ptr);
@@ -489,6 +446,7 @@ void diag_create_msg_mask_table(void)
 	CREATE_MSG_MASK_TBL_ROW(20);
 	CREATE_MSG_MASK_TBL_ROW(21);
 	CREATE_MSG_MASK_TBL_ROW(22);
+	CREATE_MSG_MASK_TBL_ROW(23);
 }
 
 static void diag_set_msg_mask(int rt_mask)
@@ -1166,7 +1124,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		driver->apps_rsp_buf[1] = 0x1;
 		driver->apps_rsp_buf[2] = 0x1;
 		driver->apps_rsp_buf[3] = 0x0;
-		*(int *)(driver->apps_rsp_buf + 4) = MSG_MASK_TBL_CNT;
+		/* -1 to un-account for OEM SSID range */
+		*(int *)(driver->apps_rsp_buf + 4) = MSG_MASK_TBL_CNT - 1;
 		*(uint16_t *)(driver->apps_rsp_buf + 8) = MSG_SSID_0;
 		*(uint16_t *)(driver->apps_rsp_buf + 10) = MSG_SSID_0_LAST;
 		*(uint16_t *)(driver->apps_rsp_buf + 12) = MSG_SSID_1;
@@ -1732,6 +1691,26 @@ int channel_diag_write(struct legacy_diag_ch *ch, struct diag_request *d_req)
 
 #endif /* DIAG OVER USB OR DIAG INTERNAL */
 
+#ifdef CONFIG_DIAG_EXTENSION
+int diag_addon_register(struct diag_addon *addon)
+{
+	if (addon == NULL)
+		return -EPERM;
+
+	addon->diag_process_apps_pkt = diag_process_apps_pkt;
+	list_add_tail(&addon->list, &driver->addon_list);
+	return 0;
+}
+EXPORT_SYMBOL(diag_addon_register);
+
+int diag_addon_unregister(struct diag_addon *addon)
+{
+	list_del(&addon->list);
+	return 0;
+}
+EXPORT_SYMBOL(diag_addon_unregister);
+#endif
+
 static void diag_smd_notify(void *ctxt, unsigned event)
 {
 	if (event == SMD_EVENT_CLOSE) {
@@ -1841,6 +1820,11 @@ void diagfwd_init(void)
 {
 	diag_debug_buf_idx = 0;
 	driver->read_len_legacy = 0;
+
+#ifdef CONFIG_DIAG_EXTENSION
+	INIT_LIST_HEAD(&driver->addon_list);
+#endif
+
 	mutex_init(&driver->diag_cntl_mutex);
 
 	if (driver->event_mask == NULL) {
@@ -1925,12 +1909,6 @@ void diagfwd_init(void)
 	    (driver->log_masks = kzalloc(LOG_MASK_SIZE, GFP_KERNEL)) == NULL)
 		goto err;
 	driver->log_masks_length = (sizeof(struct mask_info))*MAX_EQUIP_ID;
-        //Slate code starts IKASANTISPRINT-207
-        if (driver->saved_log_masks == NULL &&
-             (driver->saved_log_masks = kzalloc(LOG_MASK_SIZE, GFP_KERNEL)) == NULL)
-                goto err;
-        //IKASANTISPRINT-207 ends
-
 	if (driver->event_masks == NULL &&
 	    (driver->event_masks = kzalloc(EVENT_MASK_SIZE,
 					    GFP_KERNEL)) == NULL)
@@ -1999,10 +1977,6 @@ void diagfwd_init(void)
 		if (driver->apps_rsp_buf == NULL)
 			goto err;
 	}
-
-    driver->slate_cmd = 0;
-    driver->slate_log_count = 0;
-
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 #if defined(CONFIG_DIAG_OVER_USB) || defined(CONFIG_DIAG_INTERNAL)
 	INIT_WORK(&(driver->diag_proc_hdlc_work), diag_process_hdlc_fn);
@@ -2041,7 +2015,6 @@ err:
 		kfree(driver->hdlc_buf);
 		kfree(driver->msg_masks);
 		kfree(driver->log_masks);
-                kfree(driver->saved_log_masks);    //IKASANTISPRINT-207 added for slate
 		kfree(driver->event_masks);
 		kfree(driver->client_map);
 		kfree(driver->buf_tbl);
@@ -2094,7 +2067,6 @@ void diagfwd_exit(void)
 	kfree(driver->hdlc_buf);
 	kfree(driver->msg_masks);
 	kfree(driver->log_masks);
-        kfree(driver->saved_log_masks);    // IKASANTISPRINT-207 added for slate
 	kfree(driver->event_masks);
 	kfree(driver->client_map);
 	kfree(driver->buf_tbl);
@@ -2111,376 +2083,3 @@ void diagfwd_exit(void)
 	kfree(driver->user_space_data);
 	destroy_workqueue(driver->diag_wq);
 }
-
-//Slate code starts IKASANTISPRINT-207
-static void diag_cfg_log_mask(unsigned char cmd_type)
-{
-    unsigned len = 0;
-    unsigned char *ptr = driver->hdlc_buf;
-#ifdef SLATE_DEBUG
-    printk(KERN_INFO "diag_cfg_log_mask cmd_type=%d\n", cmd_type);
-#endif
-    switch(cmd_type)
-    {
-    case DIAG_MASK_CMD_ADD_GET_RSSI:
-        if (ptr)
-        {
-            len = 159; // 0x4F5 bits / 8 = 159 bytes
-            memset(ptr, 0, len+16);
-            *ptr = 0x73;
-            ptr += 4;
-            *(int *)ptr = 0x0003;
-            ptr += 4;
-            *(int *)ptr = 0x0001;
-            ptr += 4;
-            *(int *)ptr = 0x04F5;
-            ptr += 4;
-            memcpy(ptr, driver->log_masks, len);
-            ptr += 13;
-            *ptr |= 0x02; // Enable 0x1069 EVDO POWER log bit
-            diag_process_user_pkt(driver->hdlc_buf, len+16); // len param not used for 0x73
-        }
-        break;
-    case DIAG_MASK_CMD_ADD_GET_STATE_AND_CONN_ATT:
-        if (ptr)
-        {
-            len = 159; // 0x4F5 bits / 8 = 159 bytes
-            memset(ptr, 0, len+16);
-            *ptr = 0x73;
-            ptr += 4;
-            *(int *)ptr = 0x0003;
-            ptr += 4;
-            *(int *)ptr = 0x0001;
-            ptr += 4;
-            *(int *)ptr = 0x04F5;
-            ptr += 4;
-            memcpy(ptr, driver->log_masks, len);
-            ptr += 13;
-            *ptr |= 0x40; // Enable 0x106E EVDO CONN ATTEMPTS log bit
-            ptr += 2;
-            *ptr |= 0x40; // Enable 0x107E EVDO STATE log bit
-            diag_process_user_pkt(driver->hdlc_buf, len+16);  // len param not used for 0x73
-        }
-        break;
-	case DIAG_MASK_CMD_ADD_GET_SEARCHER_DUMP:
-		if (ptr)
-        {
-            len = 159; // 0x4F5 bits / 8 = 159 bytes
-            memset(ptr, 0, len+16);
-            *ptr = 0x73;
-            ptr += 4;
-            *(int *)ptr = 0x0003;
-            ptr += 4;
-            *(int *)ptr = 0x0001;
-            ptr += 4;
-            *(int *)ptr = 0x04F5;
-            ptr += 4;
-            memcpy(ptr, driver->log_masks, len);
-			ptr += 5;
-			*ptr |= 0x20; // 1020 (Searcher and Finger)
-			ptr += 38;
-			*ptr |= 0x01; // 1158 (Internal - Core Dump)
-			ptr += 8;
-			*ptr |= 0x08; // 119A, 119B (Srch TNG Finger Status and Srch TNG 1x Searcher Dump)
-            diag_process_user_pkt(driver->hdlc_buf, len+16);  // len param not used for 0x73
-        }
-		break;
-    case DIAG_MASK_CMD_SAVE:
-        memcpy(driver->saved_log_masks, driver->log_masks, LOG_MASK_SIZE);
-        break;
-    case DIAG_MASK_CMD_RESTORE:
-    default:
-        if (ptr)
-        {
-            len = 159; // 0x4F5 bits / 8 = 159 bytes
-            memset(ptr, 0, len+16);
-            *ptr = 0x73;
-            ptr += 4;
-            *(int *)ptr = 0x0003;
-            ptr += 4;
-            *(int *)ptr = 0x0001;
-            ptr += 4;
-            *(int *)ptr = 0x04F5;
-            ptr += 4;
-            memcpy(ptr, driver->saved_log_masks, len);
-            diag_process_user_pkt(driver->hdlc_buf, len+16);  // len param not used for 0x73
-        }
-        break;
-    }
-}
-void diag_init_log_cmd(unsigned char log_cmd)
-{
-	switch(log_cmd)
-    {
-		case DIAG_LOG_CMD_TYPE_GET_1x_SEARCHER_DUMP:
-			diag_cfg_log_mask(DIAG_MASK_CMD_SAVE);
-			diag_cfg_log_mask(DIAG_MASK_CMD_ADD_GET_SEARCHER_DUMP);
-			break;
-		default:
-			printk(KERN_ERR "Invalid log_cmd=%d\n", log_cmd);
-			break;
-    }
-    driver->log_count = 0;
-    driver->log_cmd = log_cmd;
-}
-void diag_init_slate_log_cmd(unsigned char cmd_type)
-{
-    switch(cmd_type)
-    {
-    case DIAG_LOG_CMD_TYPE_GET_RSSI:
-        diag_cfg_log_mask(DIAG_MASK_CMD_SAVE);
-        diag_cfg_log_mask(DIAG_MASK_CMD_ADD_GET_RSSI);
-        break;
-    case DIAG_LOG_CMD_TYPE_GET_STATE_AND_CONN_ATT:
-        diag_cfg_log_mask(DIAG_MASK_CMD_SAVE);
-        diag_cfg_log_mask(DIAG_MASK_CMD_ADD_GET_STATE_AND_CONN_ATT);
-        break;
-    default:
-        printk(KERN_ERR "Invalid SLATE log cmd_type %d\n", cmd_type);
-        break;
-    }
-    driver->slate_log_count = 0;
-    driver->slate_cmd = cmd_type;
-}
-int diag_log_is_enabled(unsigned char log_type)
-{
-    int log_offset = 0;
-    uint8_t log_mask = 0;
-    int ret = 0;
-    switch (log_type)
-    {
-    case DIAG_LOG_TYPE_RSSI:
-        log_offset = 13;
-        log_mask = 0x02;
-        break;
-    case DIAG_LOG_TYPE_STATE:
-        log_offset = 15;
-        log_mask = 0x40;
-        break;
-    case DIAG_LOG_TYPE_CONN_ATT:
-        log_offset = 13;
-        log_mask = 0x40;
-        break;
-    default:
-        printk(KERN_ERR "diag_log_is_enabled INVALID log_type = %d\n", log_type);
-        break;
-    }
-#ifdef SLATE_DEBUG
-    {
-        int i;
-        printk(KERN_INFO "SAVED LOG MASK\n");
-        for (i = 0; i < 16; i++)
-        {
-            printk(KERN_INFO " %02X", ((char*)driver->saved_log_masks)[i]);
-            if ( ((i+1) % 20) == 0 )
-            {
-                printk(KERN_INFO "\n");
-            }
-        }
-        printk(KERN_INFO "\n");
-    }
-#endif
-    if ((driver->saved_log_masks[log_offset] & log_mask) == log_mask)
-    {
-        ret = 1;
-    }
-#ifdef SLATE_DEBUG
-    printk(KERN_INFO "diag_log_is_enabled log_type=%d ret=%d\n", log_type, ret);
-#endif
-    return ret;
-}
-void diag_restore_log_masks(void)
-{
-    driver->log_cmd = DIAG_LOG_CMD_TYPE_RESTORE_LOG_MASKS;
-    diag_cfg_log_mask(DIAG_MASK_CMD_RESTORE);
-}
-static void diag_slate_restore_log_masks(void)
-{
-#ifdef SLATE_DEBUG
-    printk(KERN_ERR "\nSLATE: diag_slate_restore_log_masks\n");
-#endif
-    driver->slate_cmd = DIAG_LOG_CMD_TYPE_RESTORE_LOG_MASKS;
-    diag_cfg_log_mask(DIAG_MASK_CMD_RESTORE);
-}
-void diag_process_get_rssi_log(void)
-{
-    diag_init_slate_log_cmd(DIAG_LOG_CMD_TYPE_GET_RSSI);
-}
-static void log_mask_timer_handle(unsigned long arg)
-{
-#ifdef SLATE_DEBUG
-    printk(KERN_ERR "\nSLATE: log_mask_timer_handle\n");
-#endif
-    diag_slate_restore_log_masks();
-
-    //IKQCOM-5956: don't need the wake lock anymore after restoring the logmask
-    wake_lock_destroy(&slate_diag_wake_lock);
-}
-static void diag_restore_log_masks_timer(void)
-{
-    init_timer(&log_mask_timer);
-    log_mask_timer.function = &log_mask_timer_handle; 
-    log_mask_timer.expires = jiffies + 2 * 60 * HZ; //2 minutes
-    add_timer(&log_mask_timer);
-}
-void diag_process_get_stateAndConnInfo_log(void)
-{
-    if( 0 == timer_flag )
-    {
-        // IKQCOM-5956: This wake lock is to prevent phone from going to sleep and thereby leaving
-        // BP logmask on that causes a current drain.  After the timer below is handled, we
-        // will kill the wake lock (in approximately two mins)
-        wake_lock_init(&slate_diag_wake_lock, WAKE_LOCK_SUSPEND, SLATE_PROGRAM_NAME);
-        wake_lock_timeout(&slate_diag_wake_lock, 2.5*60*HZ);  //setup a wake lock timer for 2.5 mins.
-    }
-    diag_init_slate_log_cmd(DIAG_LOG_CMD_TYPE_GET_STATE_AND_CONN_ATT);
-    if( 0 == timer_flag )
-    {
-        diag_restore_log_masks_timer();
-        timer_flag = 1;
-    }
-}
-
-//Slate code starts IKASANTISPRINT-207
-void diag_cfg_event_mask(void)
-{
-    unsigned len = 0;
-    unsigned char *ptr = driver->hdlc_buf;
-
-    if (ptr)
-    {
-        len = 2;
-        memset(ptr, 0, len);
-        *ptr = 0x60;
-        ptr ++;
-        *ptr = 0x01;
-        diag_process_user_pkt(driver->hdlc_buf, len);
-    }
-
-    ptr = driver->hdlc_buf;
-    if (ptr)
-    {
-        len = 270;
-        memset(ptr, 0, len);
-        *ptr = 0x82;
-        ptr += 4;
-        *ptr = 0x40;
-        ptr ++;
-        *ptr = 0x08;
-        ptr += 54;
-        *ptr = 0xC0;
-        diag_process_user_pkt(driver->hdlc_buf, len);
-    }
-}
-//Slate code ends
-
-static int diag_process_modem_pkt(unsigned char *buf, int len)
-{
-    int ret = 1; // 1 - pkt needs to be forwarded to QXDM; 0 - drop packet
-#ifdef SLATE_DEBUG
-    print_hex_dump(KERN_DEBUG, "MODEM_DATA writing data to USB ", 16, 1,
-							   DUMP_PREFIX_ADDRESS, buf, len, 1);
-#endif
-    if( (((char*)buf)[0] == 0x10) && (((char*)buf)[6] == 0x69) && (((char*)buf)[7] == 0x10) )
-    {
-#ifdef SLATE_DEBUG
-        printk(KERN_INFO "MODEM_DATA **** EVDO POWER PKT ***** slate_cmd=%d\n", driver->slate_cmd);
-#endif
-        switch(driver->slate_cmd)
-        {
-        case DIAG_LOG_CMD_TYPE_GET_RSSI:
-            diag_slate_restore_log_masks();
-            diag_process_apps_pkt(buf, len);
-            if (diag_log_is_enabled(DIAG_LOG_TYPE_RSSI) == 0)
-            {
-                ret = 0;
-#ifdef SLATE_DEBUG
-        printk(KERN_INFO "SLATE EVDO POWER LOG PACKET DROPPED!!!!!\n");
-#endif
-            }
-            break;
-        case DIAG_LOG_CMD_TYPE_GET_STATE_AND_CONN_ATT:
-        default:
-            break;
-        }
-    }
-    else if( (((char*)buf)[0] == 0x10) && (((char*)buf)[6] == 0x6E) && (((char*)buf)[7] == 0x10) )
-    {
-#ifdef SLATE_DEBUG
-        printk(KERN_INFO "MODEM_DATA **** EVDO CONN ATT ***** slate_cmd=%d\n", driver->slate_cmd);
-#endif
-        switch(driver->slate_cmd)
-        {
-        case DIAG_LOG_CMD_TYPE_GET_STATE_AND_CONN_ATT:
-            if ((driver->slate_log_count & 0x02) == 0x00)
-            {
-                driver->slate_log_count |= 2;
-                if (driver->slate_log_count == 3)
-                {
-                    diag_slate_restore_log_masks();
-                }
-                diag_process_apps_pkt(buf, len);
-            }
-            if (diag_log_is_enabled(DIAG_LOG_TYPE_CONN_ATT) == 0)
-            {
-                ret = 0;
-#ifdef SLATE_DEBUG
-        printk(KERN_INFO "SLATE EVDO CONN ATT LOG PACKET DROPPED!!!!!\n");
-#endif
-            }
-            break;
-        case DIAG_LOG_CMD_TYPE_GET_RSSI:
-        default:
-            break;
-        }
-    } // the byte 0x7E is transmitted as 0x7D followed by 0x5E
-    else if( (((char*)buf)[0] == 0x10) && (((char*)buf)[6]  == 0x7D) && (((char*)buf)[7]  == 0x5E) && (((char*)buf)[8]  == 0x10) )
-    {
-#ifdef SLATE_DEBUG
-        printk(KERN_INFO "MODEM_DATA **** EVDO STATE ***** slate_cmd=%d\n", driver->slate_cmd);
-#endif
-        switch(driver->slate_cmd)
-        {
-        case DIAG_LOG_CMD_TYPE_GET_STATE_AND_CONN_ATT:
-            if ((driver->slate_log_count & 0x01) == 0x00)
-            {
-                driver->slate_log_count |= 1;
-                if (driver->slate_log_count == 3)
-                {
-                    diag_slate_restore_log_masks();
-                }
-                diag_process_apps_pkt(buf, len);
-            }
-            if (diag_log_is_enabled(DIAG_LOG_TYPE_STATE) == 0)
-            {
-                ret = 0;
-#ifdef SLATE_DEBUG
-        printk(KERN_INFO "SLATE EVDO STATE LOG PACKET DROPPED!!!!!\n");
-#endif
-            }
-            break;
-        case DIAG_LOG_CMD_TYPE_GET_RSSI:
-        default:
-            break;
-        }
-    }
-    return ret;
-}
-static void diag_process_user_pkt(unsigned char *data, unsigned len)
-{
-	int type = 0;
-#ifdef SLATE_DEBUG
-    print_hex_dump(KERN_DEBUG, "diag_process_user_pkt ", 16, 1,
-							   DUMP_PREFIX_ADDRESS, data, len, 1);
-#endif
-    type = diag_process_apps_pkt(data, len);
-	if ((driver->ch) && (type))
-    {
-		smd_write(driver->ch, data, len);
-	}
-    else
-    {
-        printk(KERN_ERR "DIAG User Packet not written to SMD (MODEM) type=%d\n", type);
-    }
-}
-//IKASANTISPRINT-207 ends

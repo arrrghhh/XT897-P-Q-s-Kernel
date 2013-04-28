@@ -312,6 +312,15 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #include "storage_common.c"
 
+void handle_switch_index(int index);
+
+#define SWITCH_INDEX_UNKNOWN   0x00
+#define SWITCH_INDEX_CDROM     0x01
+#define SWITCH_INDEX_MTPUSBNET 0x1E
+#define SWITCH_INDEX_RESET     0x41
+
+int ms_cdrom_enable;
+
 #ifdef CONFIG_USB_CSW_HACK
 static int write_error_after_csw_sent;
 static int csw_hack_sent;
@@ -372,7 +381,6 @@ struct fsg_common {
 	u8			cmnd[MAX_COMMAND_SIZE];
 
 	unsigned int		nluns;
-	unsigned int		cdrom_lun_num;
 	unsigned int		lun;
 	struct fsg_lun		*luns;
 	struct fsg_lun		*curlun;
@@ -411,14 +419,12 @@ struct fsg_common {
 	char inquiry_string[8 + 16 + 4 + 1];
 
 	struct kref		ref;
-#ifdef CONFIG_USB_MOT_ANDROID
-	unsigned int		switch_mode:1;
-#endif
+	unsigned int            cdrom_lun_num;
+	unsigned int            switch_mode:1;
 };
 
 struct fsg_config {
 	unsigned nluns;
-	unsigned cdrom_lun_num;
 	struct fsg_lun_config {
 		const char *filename;
 		char ro;
@@ -440,6 +446,7 @@ struct fsg_config {
 	u16 release;
 
 	char			can_stall;
+	unsigned 		cdrom_lun_num;
 };
 
 struct fsg_dev {
@@ -498,17 +505,6 @@ static void set_bulk_out_req_length(struct fsg_common *common,
 }
 
 
-#ifdef CONFIG_USB_MOT_ANDROID
-#define USB_SMART_VERSION_SIZE 255
-u8 sm_vers[USB_SMART_VERSION_SIZE];
-u8 sm_vers_sz;
-void update_function_type_and_reenumerate(int index);
-void set_cdrom_umount(void);
-#define CDROM_INDEX 0x00
-#define CDROM2_INDEX 0x33
-#define USBNETMTP_INDEX 0x1E
-#define RESET_INDEX 0x41
-#endif
 /*-------------------------------------------------------------------------*/
 
 static int fsg_set_halt(struct fsg_dev *fsg, struct usb_ep *ep)
@@ -622,63 +618,6 @@ static void bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_unlock(&common->lock);
 }
 
-static int fsg_ctrlrequest(struct usb_composite_dev *cdev,
-			   const struct usb_ctrlrequest *ctrl)
-{
-	struct usb_request      *req = cdev->req;
-	u16                     w_index = le16_to_cpu(ctrl->wIndex);
-	u16                     w_value = le16_to_cpu(ctrl->wValue);
-	u16                     w_length = le16_to_cpu(ctrl->wLength);
-	int rc = -EOPNOTSUPP;
-
-	req->length = 0;
-
-	switch (ctrl->bRequest) {
-#ifdef CONFIG_USB_MOT_ANDROID
-	case USB_BULK_GET_ENCAP_RESPONSE:
-		printk(KERN_INFO "get smart version\n");
-		if (!((ctrl->bRequestType & USB_TYPE_MASK) ==
-		      USB_TYPE_VENDOR)) {
-			printk(KERN_INFO "%s: invalid vendor command "
-			       "request\n", __func__);
-			break;
-		}
-
-		if (w_value != 1 || w_index) {
-			printk(KERN_INFO "%s: Invalid len/value of "
-			       "encapsulated command\n", __func__);
-			break;
-		} else {
-			printk(KERN_INFO " memcpy USB_BULK_GET_ENCAP_RESPONSE  smart version [%d]\n",
-			       sm_vers_sz);
-			/*
-			 * fill the bufer smart version read
-			 * from cdrom flash partition
-			 */
-			memcpy((void *)req->buf, (void *)sm_vers, sm_vers_sz);
-			req->length = sm_vers_sz;
-			if (req->length >= 0) {
-				rc = usb_ep_queue(cdev->gadget->ep0,
-						  req, GFP_ATOMIC);
-
-				if (rc < 0)
-					printk(KERN_INFO "fsg  setup response error\n");
-
-				return rc;
-			} else
-				printk(KERN_INFO "%s: req len is not valid,"
-				       "exiting\n", __func__);
-		}
-		break;
-#endif
-	}
-	printk(KERN_INFO
-	       "unknown class-specific control req %02x.%02x v%04x i%04x l%u\n",
-	       ctrl->bRequestType, ctrl->bRequest,
-	       le16_to_cpu(ctrl->wValue), w_index, w_length);
-	return -EOPNOTSUPP;
-}
-
 static int fsg_setup(struct usb_function *f,
 		     const struct usb_ctrlrequest *ctrl)
 {
@@ -720,14 +659,15 @@ static int fsg_setup(struct usb_function *f,
 		if (w_value != 0)
 			return -EDOM;
 		VDBG(fsg, "get max LUN\n");
+
 		if (fsg->common->cdrom_lun_num > 0) {
-			if (cdrom_enable)
+			if (ms_cdrom_enable)
 				*(u8 *)req->buf = fsg->common->nluns - 1;
 			else
 				*(u8 *)req->buf =
 					fsg->common->cdrom_lun_num - 1;
 		} else {
-			if (cdrom_enable)
+			if (ms_cdrom_enable)
 				*(u8 *)req->buf = 0;
 			else
 				*(u8 *)req->buf = fsg->common->nluns - 1;
@@ -736,7 +676,6 @@ static int fsg_setup(struct usb_function *f,
 		/* Respond with data/status */
 		req->length = min((u16)1, w_length);
 		return ep0_queue(fsg->common);
-
 	}
 
 	VDBG(fsg,
@@ -1732,13 +1671,6 @@ static int do_start_stop(struct fsg_common *common)
 	up_write(&common->filesem);
 	down_read(&common->filesem);
 
-#ifdef CONFIG_USB_MOT_ANDROID
-	if (curlun->cdrom) {
-		pr_info("%s: eject, umount cdrom image\n", __func__);
-		set_cdrom_umount();
-	}
-#endif
-
 	return common->ops && common->ops->post_eject
 		? min(0, common->ops->post_eject(common, curlun,
 						 curlun - common->luns))
@@ -2342,6 +2274,7 @@ static int do_scsi_command(struct fsg_common *common)
 			goto unknown_cmnd;
 		common->data_size_from_cmnd =
 			get_unaligned_be16(&common->cmnd[7]);
+
 		/* Set bit 9 to 1 in the mask because Mac Sends a value in byte
 		* 9  of the READ_TOC . Windows does not set it, but changing
 		* the mask covers both host envs.
@@ -2349,6 +2282,7 @@ static int do_scsi_command(struct fsg_common *common)
 		reply = check_command(common, 10, DATA_DIR_TO_HOST,
 				      (0xf<<6) | (1<<1), 1,
 				      "READ TOC");
+
 		if (reply == 0)
 			reply = do_read_toc(common, bh);
 		break;
@@ -2457,7 +2391,7 @@ unknown_cmnd:
 		common->data_size_from_cmnd = 0;
 		sprintf(unknown, "Unknown x%02x", common->cmnd[0]);
 		reply = check_command(common, common->cmnd_size,
-				      DATA_DIR_UNKNOWN, 0xff, 0, unknown);
+				      DATA_DIR_UNKNOWN, ~0, 0, unknown);
 		if (reply == 0) {
 			common->curlun->sense_data = SS_INVALID_COMMAND;
 			reply = -EINVAL;
@@ -2684,10 +2618,10 @@ reset:
 static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
-	int i;
 	struct fsg_common *common = fsg->common;
 	const struct usb_endpoint_descriptor *d;
 	int rc;
+	int i;
 
 	/* Enable the endpoints */
 	d = fsg_ep_desc(common->gadget,
@@ -2710,9 +2644,9 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 	fsg->common->new_fsg = fsg;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
-#ifdef CONFIG_USB_MOT_ANDROID
+
 	for (i = 0; i < fsg->common->nluns; ++i) {
-		if ((i == fsg->common->cdrom_lun_num) && cdrom_enable) {
+		if ((i == fsg->common->cdrom_lun_num) && ms_cdrom_enable) {
 			fsg->common->luns[i].cdrom = 1;
 			fsg->common->luns[i].ro = 1;
 		} else {
@@ -2720,7 +2654,7 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			fsg->common->luns[i].ro = 0;
 		}
 	}
-#endif
+
 	return USB_GADGET_DELAYED_STATUS;
 }
 
@@ -2926,7 +2860,7 @@ static int fsg_main_thread(void *common_)
 
 		if (common->switch_mode) {
 			common->switch_mode = 0;
-			update_function_type_and_reenumerate(USBNETMTP_INDEX);
+			handle_switch_index(SWITCH_INDEX_MTPUSBNET);
 		}
 
 		if (!common->running) {

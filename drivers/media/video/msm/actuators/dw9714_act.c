@@ -13,6 +13,7 @@
 
 #include "msm_actuator.h"
 #include <linux/debugfs.h>
+#include "media/msm_camera_query.h"
 
 #define DW9714_TOTAL_STEPS_NEAR_TO_FAR_MAX 45
 
@@ -243,10 +244,20 @@ static int32_t dw9714_set_params(struct msm_actuator_ctrl_t *a_ctrl)
 		0xEC, 0xA3, MSM_CAMERA_I2C_BYTE_DATA);
 	msm_camera_i2c_write(&a_ctrl->i2c_client,
 		0xA1, 0x04, MSM_CAMERA_I2C_BYTE_DATA);
-	msm_camera_i2c_write(&a_ctrl->i2c_client,
-		0xF2, 0x00, MSM_CAMERA_I2C_BYTE_DATA);
+
+	if ((af_info.af_man_type1 == 0x39343031) &&
+			(af_info.af_man_type2 == 0x34303134) &&
+			(af_info.af_act_type == 0x4D49)) {
+		msm_camera_i2c_write(&a_ctrl->i2c_client,
+				0xF2, 0xD8, MSM_CAMERA_I2C_BYTE_DATA);
+	} else {
+		msm_camera_i2c_write(&a_ctrl->i2c_client,
+				0xF2, 0x00, MSM_CAMERA_I2C_BYTE_DATA);
+	}
+
 	msm_camera_i2c_write(&a_ctrl->i2c_client,
 		0xDC, 0x51, MSM_CAMERA_I2C_BYTE_DATA);
+
 	return 0;
 }
 

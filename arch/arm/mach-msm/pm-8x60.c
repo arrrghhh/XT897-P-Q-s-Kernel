@@ -1131,8 +1131,6 @@ static int msm_pm_enter(suspend_state_t state)
 				time = 0;
 		}
 
-		pr_info("suspend: time=%lld\n", time);
-
 		msm_pm_add_stat(MSM_PM_STAT_SUSPEND, time);
 #endif /* CONFIG_MSM_IDLE_STATS */
 	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
