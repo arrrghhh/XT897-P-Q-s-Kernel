@@ -1,0 +1,11 @@
+#
+# Near Field Communication (NFC) devices
+#
+
+config PN544
+	bool "PN544 NFC driver"
+	depends on I2C
+	default n
+	---help---
+	  NXP PN544 Near Field Communication controller support.
+
