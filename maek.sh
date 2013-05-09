@@ -21,7 +21,7 @@
     KERNELNAME=$1
 
     # Set our Ramdisk locations (uncomment teh CM ones when you actually need them :) )
-    RAMDISK=/media/raid/dev/kernel/ramdisk
+    RAMDISK=/media/raid/dev/kernel/ramdisk_jb
     #CMRAMDISK=~/xt897/Ramdisks/XT897-CM
     #CM101RAMDISK=~/xt897/Ramdisks/XT897-CM10-1
 
