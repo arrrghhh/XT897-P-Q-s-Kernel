@@ -55,7 +55,7 @@
 #    echo "" >> $LOG
 
     # Finally making the kernel
-    $MAKE zImage 2>&1 | tee /var/www/logs/kernelbuildlog.txt
+    time $MAKE zImage 2>&1 | tee /var/www/logs/kernelbuildlog.txt
     $MAKE modules
 
 #    echo "Compiled" >> $LOG
