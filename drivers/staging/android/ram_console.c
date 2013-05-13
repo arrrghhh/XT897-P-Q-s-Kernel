@@ -346,7 +346,7 @@ ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 	ram_console_ext_oldbuf_push(ptr);
 }
 
-static int __init ram_console_init(struct ram_console_buffer *buffer,
+static int ram_console_init(struct ram_console_buffer *buffer,
 				   size_t buffer_size, const char *bootinfo,
 				   char *old_buf)
 {
