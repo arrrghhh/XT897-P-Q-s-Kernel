@@ -65,8 +65,8 @@ static int  proc_dump_tags (struct seq_file *file)
 	struct utag *tags = NULL;
 	enum utag_error status;
 	uint32_t loc_csum = 0;
-	int count;
-	int bytes;
+	int count = 0;
+	int bytes = 0;
 
 	tags = load_utags(&status);
 	if (NULL==tags)

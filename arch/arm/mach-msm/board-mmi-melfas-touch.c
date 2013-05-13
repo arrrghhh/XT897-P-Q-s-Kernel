@@ -239,7 +239,7 @@ int __init melfas_ts_platform_init(void)
 
 static void touch_recalc_avg_latency()
 {
-	u64 total_time;
+	u64 total_time = 0;
 	u8 i;
 
 	for (i = 0; i < MELFAS_LATENCY_SAMPLES; i++)
