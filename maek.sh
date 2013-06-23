@@ -75,6 +75,9 @@
     # These move files to easier locations
     find -name '*.ko' -exec cp -av {} $MODULES/ \;
 
+    cd $MODULES
+    $COMP/arm-eabi-strip --strip-unneeded *.ko
+
     # This part packs the img up :)
     # In order for this part to work you need the mkbootimg tools
 # -----------------------------------------------------------------------------------------------
