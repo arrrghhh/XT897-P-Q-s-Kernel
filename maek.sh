@@ -6,12 +6,15 @@
     THREADS=$(expr 4 + $(grep processor /proc/cpuinfo | wc -l))
     DEFCONFIG=msm8960_mmi_defconfig
     ARCH="ARCH=arm"
-    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/google/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
+    COMP="/media/raid/dev/toolchain/arm-eabi-4.6/bin/"
+    CROSS="CROSS_COMPILE=/media/raid/dev/toolchain/arm-eabi-4.6/bin/arm-eabi-"
+#    CROSS="CROSS_COMPILE=/media/raid/dev/trees/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
+#    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/google/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
 #    CROSS="CROSS_COMPILE=/home/arrrghhh/toolchain/linaro/android-toolchain-eabi_4.6-2012.07/bin/arm-eabi-"
     # Setup our directories now
-    DIR=~/trees/kernel
-    TOOLS=~/xt897/Tools
-    KERNEL=$DIR/asa-14
+    DIR=/media/raid/dev/trees/XT897-P-Q-s-Kernel
+    TOOLS=/media/raid/dev/kernel/Tools
+    KERNEL=$DIR
     PACK=$KERNEL/package
     OUT=$KERNEL/arch/arm/boot
 
@@ -20,7 +23,7 @@
     KERNELNAME=$1
 
     # Set our Ramdisk locations (uncomment teh CM ones when you actually need them :) )
-    RAMDISK=/home/arrrghhh/xt897/Ramdisks/XT897
+    RAMDISK=/media/raid/dev/kernel/ramdisk_jb
     #CMRAMDISK=~/xt897/Ramdisks/XT897-CM
     #CM101RAMDISK=~/xt897/Ramdisks/XT897-CM10-1
 
@@ -54,7 +57,6 @@
 #    echo "" >> $LOG
 
     # Finally making the kernel
-    $MAKE zImage 2>&1 | tee /var/www/logs/kernelbuildlog.txt
     time $MAKE zImage 2>&1 | tee /var/www/logs/kernelbuildlog.txt
     $MAKE modules
 
@@ -75,7 +77,6 @@
 
     # These move files to easier locations
     find -name '*.ko' -exec cp -av {} $MODULES/ \;
-
     cd $MODULES
     $COMP/arm-eabi-strip --strip-unneeded *.ko
 
