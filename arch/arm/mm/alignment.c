@@ -294,6 +294,7 @@ union offset_union {
 static void
 do_alignment_finish_ldst(unsigned long addr, unsigned long instr, struct pt_regs *regs, union offset_union offset)
 {
+	offset.un = 0;
 	if (!LDST_U_BIT(instr))
 		offset.un = -offset.un;
 
